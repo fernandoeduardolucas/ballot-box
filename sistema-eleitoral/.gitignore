@@ -1,0 +1,7 @@
+.idea/
+.bsp/
+target/
+.dart_tool/
+build/
+.packages
+.pub-cache/
