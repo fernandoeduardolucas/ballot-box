@@ -5,6 +5,7 @@ ThisBuild / version := "0.1.0-SNAPSHOT"
 lazy val root = (project in file("."))
   .settings(
     name := "sistema-eleitoral-backend",
+    Compile / run / fork := true,
     libraryDependencies ++= Seq(
       "org.typelevel" %% "cats-effect" % "3.5.7",
       "org.http4s" %% "http4s-ember-server" % "0.23.34",

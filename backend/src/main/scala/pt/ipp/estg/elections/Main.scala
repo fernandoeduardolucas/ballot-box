@@ -18,6 +18,7 @@ object Main extends IOApp.Simple:
   private val jdbcUrl = sys.env.getOrElse("DB_URL", "jdbc:postgresql://localhost:5432/elections")
   private val dbUser = sys.env.getOrElse("DB_USER", "elections")
   private val dbPassword = sys.env.getOrElse("DB_PASSWORD", "elections")
+  private val httpPort = sys.env.get("APP_PORT").flatMap(_.toIntOption).getOrElse(8080)
 
   def run: IO[Unit] =
     val jdbcProps = Properties()
@@ -39,7 +40,7 @@ object Main extends IOApp.Simple:
       controller = ElectionController[IO](service, repo, bus)
       serverIsRunning <- EmberServerBuilder.default[IO]
         .withHost(ipv4"0.0.0.0")
-        .withPort(port"8080")
+        .withPort(Port.fromInt(httpPort).getOrElse(port"8080"))
         .withHttpWebSocketApp(ws => CORS.policy(Logger.httpApp(true, true)(controller.routes(ws).orNotFound)))
         .build
         .useForever
