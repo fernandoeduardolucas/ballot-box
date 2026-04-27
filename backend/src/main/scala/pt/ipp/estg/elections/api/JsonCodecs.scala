@@ -4,10 +4,11 @@ import io.circe.*
 import io.circe.generic.semiauto.*
 import pt.ipp.estg.elections.domain.*
 import java.util.UUID
+import scala.util.Try
 
 object JsonCodecs:
   private def parseUuid(value: String): Either[String, UUID] =
-    Either.catchNonFatal(UUID.fromString(value)).left.map(error => error.getMessage)
+    Try(UUID.fromString(value)).toEither.left.map(error => error.getMessage)
 
   given Encoder[ElectionId] = Encoder.encodeString.contramap(electionId => electionId.value.toString)
   given Decoder[ElectionId] = Decoder.decodeString.emap { rawValue =>

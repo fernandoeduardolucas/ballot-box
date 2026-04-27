@@ -2,6 +2,7 @@ package pt.ipp.estg.elections.infra
 
 import cats.effect.Ref
 import cats.effect.kernel.Sync
+import cats.syntax.all.*
 import pt.ipp.estg.elections.domain.*
 import pt.ipp.estg.elections.repository.ElectionRepository
 import java.time.Instant
