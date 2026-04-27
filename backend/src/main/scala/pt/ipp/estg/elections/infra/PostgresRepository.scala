@@ -4,6 +4,7 @@ import cats.effect.kernel.Async
 import cats.syntax.all.*
 import doobie.*
 import doobie.implicits.*
+import doobie.postgres.implicits.*
 import java.time.Instant
 import java.util.UUID
 import pt.ipp.estg.elections.domain.*

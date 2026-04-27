@@ -19,15 +19,16 @@ object Main extends IOApp.Simple:
   private val dbPassword = sys.env.getOrElse("DB_PASSWORD", "elections")
 
   def run: IO[Unit] =
+    val transactor = Transactor.fromDriverManager[IO](
+      driver = "org.postgresql.Driver",
+      url = jdbcUrl,
+      user = dbUser,
+      password = dbPassword
+    )
+
     for
-      transactor = Transactor.fromDriverManager[IO](
-        driver = "org.postgresql.Driver",
-        url = jdbcUrl,
-        user = dbUser,
-        password = dbPassword
-      )
-      repo = PostgresRepository[IO](transactor)
       bus <- EventBus.create[IO]
+      repo = PostgresRepository[IO](transactor)
       baseService = ElectionService[IO](repo, bus)
       service = LoggedElectionService[IO](baseService)
       controller = ElectionController[IO](service, repo, bus)

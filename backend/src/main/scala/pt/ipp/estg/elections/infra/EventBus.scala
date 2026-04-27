@@ -2,6 +2,7 @@ package pt.ipp.estg.elections.infra
 
 import cats.effect.kernel.Async
 import cats.effect.std.Queue
+import cats.syntax.all.*
 import fs2.Stream
 import pt.ipp.estg.elections.domain.*
 
