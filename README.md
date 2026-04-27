@@ -18,6 +18,20 @@ sbt run
 
 API: `http://localhost:8080`
 
+> O backend precisa de PostgreSQL ativo em `localhost:5432`. Se receber
+> `Connection to localhost:5432 refused`, inicie apenas a base de dados:
+
+```bash
+docker compose up -d postgres
+```
+
+> Se o porto `8080` já estiver ocupado (por exemplo, com `sbt run` local), ao
+> subir Docker use outro porto para o backend:
+
+```bash
+BACKEND_HOST_PORT=8081 docker compose up -d
+```
+
 Endpoints principais:
 
 ```bash
