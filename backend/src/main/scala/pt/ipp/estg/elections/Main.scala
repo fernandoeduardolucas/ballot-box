@@ -3,6 +3,7 @@ package pt.ipp.estg.elections
 import cats.effect.{IO, IOApp}
 import com.comcast.ip4s.*
 import doobie.Transactor
+import java.util.Properties
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.middleware.{CORS, Logger}
 import org.typelevel.log4cats.slf4j.Slf4jFactory
@@ -19,11 +20,15 @@ object Main extends IOApp.Simple:
   private val dbPassword = sys.env.getOrElse("DB_PASSWORD", "elections")
 
   def run: IO[Unit] =
+    val jdbcProps = Properties()
+    jdbcProps.setProperty("user", dbUser)
+    jdbcProps.setProperty("password", dbPassword)
+
     val transactor = Transactor.fromDriverManager[IO](
       driver = "org.postgresql.Driver",
       url = jdbcUrl,
-      user = dbUser,
-      password = dbPassword
+      info = jdbcProps,
+      logHandler = None
     )
 
     for
