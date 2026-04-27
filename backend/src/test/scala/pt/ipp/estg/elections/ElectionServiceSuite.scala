@@ -4,6 +4,7 @@ import cats.effect.IO
 import munit.CatsEffectSuite
 import pt.ipp.estg.elections.domain.*
 import pt.ipp.estg.elections.infra.{EventBus, InMemoryRepository}
+import pt.ipp.estg.elections.services.ElectionService
 import java.util.UUID
 
 class ElectionServiceSuite extends CatsEffectSuite:
@@ -15,10 +16,12 @@ class ElectionServiceSuite extends CatsEffectSuite:
       repo <- InMemoryRepository.create[IO]
       bus <- EventBus.create[IO]
       service = ElectionService[IO](repo, bus)
-      _ <- service.registerVoter(voter)
+      voterRegistration <- service.registerVoter(voter)
       first <- service.vote(voter.id, e, c)
       second <- service.vote(voter.id, e, c)
     yield
+      val registrationCompleted = voterRegistration
+      assertEquals(registrationCompleted, ())
       assert(first.isRight)
       assert(second.isLeft)
   }

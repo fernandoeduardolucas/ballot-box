@@ -42,33 +42,48 @@ class _HomePageState extends State<HomePage> {
     loadResults();
   }
 
+  Future<Map<String, dynamic>> graphQl(String query, Map<String, dynamic> variables) async {
+    final response = await http.post(
+      Uri.parse('$api/graphql'),
+      headers: {'content-type': 'application/json'},
+      body: jsonEncode({'query': query, 'variables': variables}),
+    );
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   Future<void> loadElection() async {
-    final response = await http.get(Uri.parse('$api/elections/$electionId'));
-    setState(() => election = jsonDecode(response.body) as Map<String, dynamic>);
+    final payload = await graphQl(
+      'query Election(\$id: String!) { election(id: \$id) { id title candidates { id name manifesto } } }',
+      {'id': electionId},
+    );
+    setState(() => election = payload['data']?['election'] as Map<String, dynamic>?);
   }
 
   Future<void> registerVoter() async {
-    final response = await http.post(
-      Uri.parse('$api/voters'),
-      headers: {'content-type': 'application/json'},
-      body: jsonEncode({'id': voterController.text, 'fullName': 'Eleitor Demo', 'electionId': electionId}),
+    final payload = await graphQl(
+      'mutation RegisterVoter(\$id: String!, \$fullName: String!, \$electionId: String!) { registerVoter(id: \$id, fullName: \$fullName, electionId: \$electionId) { ok } }',
+      {'id': voterController.text, 'fullName': 'Eleitor Demo', 'electionId': electionId},
     );
-    setState(() => status = response.statusCode == 201 ? 'Eleitor registado' : response.body);
+    final errors = payload['errors'] as List<dynamic>?;
+    setState(() => status = errors == null ? 'Eleitor registado' : errors.first['message'].toString());
   }
 
   Future<void> vote(String candidateId) async {
-    final response = await http.post(
-      Uri.parse('$api/votes'),
-      headers: {'content-type': 'application/json'},
-      body: jsonEncode({'voterId': voterController.text, 'electionId': electionId, 'candidateId': candidateId}),
+    final payload = await graphQl(
+      'mutation Vote(\$voterId: String!, \$electionId: String!, \$candidateId: String!) { vote(voterId: \$voterId, electionId: \$electionId, candidateId: \$candidateId) { accepted } }',
+      {'voterId': voterController.text, 'electionId': electionId, 'candidateId': candidateId},
     );
-    setState(() => status = response.body);
+    final errors = payload['errors'] as List<dynamic>?;
+    setState(() => status = errors == null ? 'Voto registado com sucesso' : errors.first['message'].toString());
     await loadResults();
   }
 
   Future<void> loadResults() async {
-    final response = await http.get(Uri.parse('$api/results/$electionId'));
-    setState(() => results = jsonDecode(response.body) as Map<String, dynamic>);
+    final payload = await graphQl(
+      'query Results(\$electionId: String!) { results(electionId: \$electionId) }',
+      {'electionId': electionId},
+    );
+    setState(() => results = (payload['data']?['results'] as Map<String, dynamic>?) ?? {});
   }
 
   @override
