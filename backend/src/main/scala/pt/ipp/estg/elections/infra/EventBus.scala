@@ -10,4 +10,7 @@ final class EventBus[F[_]: Async](queue: Queue[F, AuditEvent]) extends EventPubl
   def stream: Stream[F, AuditEvent] = Stream.fromQueueUnterminated(queue)
 
 object EventBus:
-  def create[F[_]: Async]: F[EventBus[F]] = Queue.unbounded[F, AuditEvent].map(new EventBus[F](_))
+  def create[F[_]: Async]: F[EventBus[F]] =
+    Queue
+      .unbounded[F, AuditEvent]
+      .map(queue => new EventBus[F](queue))

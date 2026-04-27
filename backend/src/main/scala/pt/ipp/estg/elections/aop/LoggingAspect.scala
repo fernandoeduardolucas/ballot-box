@@ -4,6 +4,7 @@ import cats.effect.{Clock, Sync}
 import cats.syntax.all.*
 import org.typelevel.log4cats.LoggerFactory
 import pt.ipp.estg.elections.domain.*
+import pt.ipp.estg.elections.services.ElectionServiceAlg
 import scala.concurrent.duration.*
 
 /**
@@ -15,18 +16,19 @@ import scala.concurrent.duration.*
  */
 object LoggingAspect:
   def around[F[_]: Sync: Clock: LoggerFactory, A](operation: String)(fa: F[A]): F[A] =
-    for
-      start <- Clock[F].monotonic
-      _ <- LoggerFactory[F].getLogger.info(s"[AOP] START $operation")
-      result <- fa.attempt
-      end <- Clock[F].monotonic
-      elapsed = (end - start).toMillis
-      value <- result match
-        case Right(value) =>
-          LoggerFactory[F].getLogger.info(s"[AOP] END $operation duration=${elapsed}ms") *> value.pure[F]
-        case Left(error) =>
-          LoggerFactory[F].getLogger.error(error)(s"[AOP] ERROR $operation duration=${elapsed}ms") *> error.raiseError[F, A]
-    yield value
+    Clock[F].monotonic.flatMap { start =>
+      LoggerFactory[F].getLogger.info(s"[AOP] START $operation") *>
+        fa.attempt.flatMap { result =>
+          Clock[F].monotonic.flatMap { end =>
+            val elapsed = (end - start).toMillis
+            result match
+              case Right(value) =>
+                LoggerFactory[F].getLogger.info(s"[AOP] END $operation duration=${elapsed}ms") *> value.pure[F]
+              case Left(error) =>
+                LoggerFactory[F].getLogger.error(error)(s"[AOP] ERROR $operation duration=${elapsed}ms") *> error.raiseError[F, A]
+          }
+        }
+    }
 
 /**
  * Decorator/AOP proxy para o serviço eleitoral.

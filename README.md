@@ -21,12 +21,17 @@ API: `http://localhost:8080`
 Endpoints principais:
 
 ```bash
-GET  /health
-GET  /elections/11111111-1111-1111-1111-111111111111
-POST /voters
-POST /votes
-GET  /results/11111111-1111-1111-1111-111111111111
+POST /graphql
 WS   /audit/stream
+```
+
+Exemplo GraphQL:
+
+```json
+{
+  "query": "query Election($id: String!) { election(id: $id) { id title } }",
+  "variables": { "id": "11111111-1111-1111-1111-111111111111" }
+}
 ```
 
 ## Executar frontend Flutter
@@ -47,8 +52,7 @@ flutter run -d chrome
 
 ## Próximos passos recomendados
 
-- Trocar o repositório em memória por Doobie/PostgreSQL.
 - Adicionar autenticação JWT/OAuth.
-- Adicionar GraphQL se o docente exigir a recomendação do enunciado.
-- Guardar `audit_log` de forma append-only.
+- Implementar parser/engine GraphQL completo (schema/validation), em vez de roteamento por operação textual.
+- Guardar `audit_log` de forma append-only no fluxo transacional.
 - Criar relatório com diagrama de arquitetura, UML e gráfico de story points.
