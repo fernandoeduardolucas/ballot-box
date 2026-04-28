@@ -13,16 +13,14 @@ import org.http4s.websocket.WebSocketFrame
 import pt.ipp.estg.elections.api.AuditEventFrameEncoder
 import pt.ipp.estg.elections.api.JsonCodecs
 import pt.ipp.estg.elections.api.JsonCodecs.GraphQLRequest
+import pt.ipp.estg.elections.application.ports.in.ElectionUseCases
 import pt.ipp.estg.elections.domain.*
 import pt.ipp.estg.elections.infra.EventBus
-import pt.ipp.estg.elections.repository.ElectionRepository
-import pt.ipp.estg.elections.services.ElectionServiceAlg
 import java.util.UUID
 
 /** Controlador HTTP/WebSocket com endpoint GraphQL textual simplificado. */
 final class ElectionController[F[_]: Async](
-  service: ElectionServiceAlg[F],
-  repo: ElectionRepository[F],
+  useCases: ElectionUseCases[F],
   bus: EventBus[F],
   frameEncoder: AuditEventFrameEncoder,
   graphqlPath: String,
@@ -70,7 +68,7 @@ final class ElectionController[F[_]: Async](
       case Left(errorMessage) =>
         Json.obj("errors" -> Json.arr(Json.obj("message" -> Json.fromString(errorMessage)))).pure[F]
       case Right(electionUuid) =>
-        repo.findElection(ElectionId(electionUuid)).map {
+        useCases.findElection(ElectionId(electionUuid)).map {
           case Some(election) => Json.obj("data" -> Json.obj("election" -> election.asJson))
           case None => Json.obj("errors" -> Json.arr(Json.obj("message" -> Json.fromString("Eleição não encontrada"))))
         }
@@ -82,7 +80,7 @@ final class ElectionController[F[_]: Async](
     (voterIdResult, fullNameResult, electionIdResult) match
       case (Right(voterId), Right(fullName), Right(electionUuid)) =>
         val voter = Voter(VoterId(voterId), fullName, Set(ElectionId(electionUuid)), Set.empty)
-        service.registerVoter(voter).as(Json.obj("data" -> Json.obj("registerVoter" -> Json.obj("ok" -> Json.True))))
+        useCases.registerVoter(voter).as(Json.obj("data" -> Json.obj("registerVoter" -> Json.obj("ok" -> Json.True))))
       case (voterIdOutcome, fullNameOutcome, electionIdOutcome) =>
         val errors = List(voterIdOutcome.left.toOption, fullNameOutcome.left.toOption, electionIdOutcome.left.toOption).flatten
         val errorObjects = errors.map(error => Json.obj("message" -> Json.fromString(error)))
@@ -94,7 +92,7 @@ final class ElectionController[F[_]: Async](
     val candidateIdResult = variableAsUuid(request.variables, "candidateId")
     (voterIdResult, electionIdResult, candidateIdResult) match
       case (Right(voterId), Right(electionUuid), Right(candidateUuid)) =>
-        service.vote(VoterId(voterId), ElectionId(electionUuid), CandidateId(candidateUuid)).map {
+        useCases.vote(VoterId(voterId), ElectionId(electionUuid), CandidateId(candidateUuid)).map {
           case Right(result) =>
             val accepted = result == ()
             Json.obj("data" -> Json.obj("vote" -> Json.obj("accepted" -> Json.fromBoolean(accepted))))
@@ -111,7 +109,7 @@ final class ElectionController[F[_]: Async](
       case Left(errorMessage) =>
         Json.obj("errors" -> Json.arr(Json.obj("message" -> Json.fromString(errorMessage)))).pure[F]
       case Right(electionUuid) =>
-        service.results(ElectionId(electionUuid)).map { counts =>
+        useCases.results(ElectionId(electionUuid)).map { counts =>
           val resultsJson = counts.map((candidateId, totalVotes) => candidateId.value.toString -> Json.fromInt(totalVotes))
           Json.obj("data" -> Json.obj("results" -> Json.obj(resultsJson.toSeq*)))
         }

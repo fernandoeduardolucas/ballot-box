@@ -101,3 +101,11 @@ flutter run -d chrome
 
 - **Facade:** `ElectionApplicationFacade` centraliza a montagem de controller + service + repository e simplifica o `Main`.
 - **Factory Method:** `RepositoryFactory` + `PostgresRepositoryFactory` encapsulam a criação de repositórios a partir do `Transactor`.
+
+## Clean Architecture (resumo)
+
+- **Interface Adapters (entrada):** `ElectionController` (HTTP/WS) traduz requests para casos de uso.
+- **Application Layer:** `ElectionUseCases` (input port) e `ElectionUseCasesLive` (implementação).
+- **Domain + Use Cases:** regras de negócio em `ElectionService` e modelo em `domain/*`.
+- **Infrastructure (saída):** `PostgresRepository`/`InMemoryRepository`, `EventBus`, config/providers.
+- **Composition Root:** `Main` + `ElectionApplicationFacade` fazem wiring das dependências.

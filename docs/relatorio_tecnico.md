@@ -42,11 +42,27 @@ O projeto implementa um sistema eleitoral com:
 
 ## 3. Arquitetura e Fluxo Técnico
 
+### 3.0 Organização em Clean Architecture
+
+- **Camada de Interface (Frameworks/Drivers):**
+  - `ElectionController` recebe HTTP/WS e transforma em chamadas de caso de uso.
+- **Camada de Aplicação (Use Cases):**
+  - `ElectionUseCases` (porta de entrada);
+  - `ElectionUseCasesLive` (orquestra serviço de domínio + acesso a leitura de eleição).
+- **Camada de Domínio:**
+  - modelos (`Election`, `Voter`, `Vote`, IDs tipados), erros e eventos.
+  - regras de negócio em `ElectionService`.
+- **Camada de Infraestrutura:**
+  - repositórios concretos (`PostgresRepository`, `InMemoryRepository`);
+  - `EventBus`, configuração e factories.
+- **Composition Root:**
+  - `Main` + `ElectionApplicationFacade`.
+
 ### 3.1 Fluxo de Pedido (GraphQL-like)
 
 1. Cliente envia `POST` para endpoint configurável GraphQL.
 2. `ElectionController` identifica operação pela query (`health`, `election`, `registerVoter`, `vote`, `results`).
-3. Controller valida variáveis e delega no serviço/repositório.
+3. Controller valida variáveis e delega nos casos de uso (input port).
 4. Serviço aplica regras de negócio e publica eventos de auditoria.
 5. Resposta JSON é devolvida ao cliente.
 
