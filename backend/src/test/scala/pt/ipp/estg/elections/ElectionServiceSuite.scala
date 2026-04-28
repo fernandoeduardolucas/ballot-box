@@ -7,7 +7,9 @@ import pt.ipp.estg.elections.infra.{EventBus, InMemoryRepository}
 import pt.ipp.estg.elections.services.ElectionService
 import java.util.UUID
 
+/** Testes de comportamento do serviço eleitoral. */
 class ElectionServiceSuite extends CatsEffectSuite:
+  /** Garante que o mesmo eleitor não consegue votar duas vezes na mesma eleição. */
   test("eleitor elegível consegue votar uma única vez") {
     val e = ElectionId(UUID.fromString("11111111-1111-1111-1111-111111111111"))
     val c = CandidateId(UUID.fromString("22222222-2222-2222-2222-222222222222"))

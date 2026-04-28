@@ -6,7 +6,9 @@ import pt.ipp.estg.elections.domain.*
 import java.util.UUID
 import scala.util.Try
 
+/** Codecs JSON da API para requests/responses e tipos de domínio. */
 object JsonCodecs:
+  /** Conversão segura de UUID a partir de texto recebido no payload. */
   private def parseUuid(value: String): Either[String, UUID] =
     Try(UUID.fromString(value)).toEither.left.map(error => error.getMessage)
 
@@ -24,8 +26,11 @@ object JsonCodecs:
   given Decoder[Candidate] = deriveDecoder
   given Encoder[Election] = deriveEncoder
   given Decoder[Election] = deriveDecoder
+  /** Payload para mutação de registo de eleitor. */
   final case class RegisterVoterRequest(id: String, fullName: String, electionId: UUID)
+  /** Payload para mutação de voto. */
   final case class VoteRequest(voterId: String, electionId: UUID, candidateId: UUID)
+  /** Envelope de request GraphQL simplificado usado no projeto. */
   final case class GraphQLRequest(query: String, variables: Option[JsonObject])
   given Decoder[RegisterVoterRequest] = deriveDecoder
   given Decoder[VoteRequest] = deriveDecoder

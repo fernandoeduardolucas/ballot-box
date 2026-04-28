@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+/// Arranque da app Flutter.
 void main() => runApp(const ElectionApp());
 
+/// Widget raiz da aplicação.
 class ElectionApp extends StatelessWidget {
   const ElectionApp({super.key});
 
@@ -26,7 +28,9 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  /// Base URL da API backend.
   static const api = 'http://localhost:8080';
+  /// Eleição demo usada na interface.
   static const electionId = '11111111-1111-1111-1111-111111111111';
   final voterController = TextEditingController(text: '12345678');
   String status = 'Pronto';
@@ -37,6 +41,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    // Abre canal WebSocket para monitorização de auditoria.
     auditChannel = WebSocketChannel.connect(Uri.parse('ws://localhost:8080/audit/stream'));
     loadElection();
     loadResults();
