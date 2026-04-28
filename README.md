@@ -18,6 +18,17 @@ sbt run
 
 API: `http://localhost:8080`
 
+### Configuração por propriedades
+
+O backend lê `backend/src/main/resources/application.properties` para:
+
+- HTTP (`app.http.host`, `app.http.port`)
+- GraphQL (`app.graphql.path`)
+- WebSocket de auditoria (`app.websocket.audit.path`)
+- Base de dados (`db.url`, `db.user`, `db.password`)
+
+As variáveis de ambiente com os mesmos propósitos (`APP_HOST`, `APP_PORT`, `GRAPHQL_PATH`, `AUDIT_WS_PATH`, `DB_URL`, `DB_USER`, `DB_PASSWORD`) têm prioridade sobre o ficheiro.
+
 > O backend precisa de PostgreSQL ativo em `localhost:5432`. Se receber
 > `Connection to localhost:5432 refused`, inicie apenas a base de dados:
 
@@ -70,3 +81,31 @@ flutter run -d chrome
 - Implementar parser/engine GraphQL completo (schema/validation), em vez de roteamento por operação textual.
 - Guardar `audit_log` de forma append-only no fluxo transacional.
 - Criar relatório com diagrama de arquitetura, UML e gráfico de story points.
+
+## SOLID aplicado no projeto
+
+- **S (Single Responsibility):**
+  - `AppConfig`/`ConfigProvider` tratam configuração.
+  - `ElectionController` delega formatação de eventos WS para `AuditEventFrameEncoder`.
+- **O (Open/Closed):**
+  - Operações GraphQL usam tabela de handlers, facilitando extensão sem alterar o fluxo principal.
+- **L (Liskov Substitution):**
+  - Implementações de `ElectionRepository` (`InMemoryRepository`, `PostgresRepository`) permanecem substituíveis.
+- **I (Interface Segregation):**
+  - Contratos pequenos e específicos (`ElectionRepository`, `EventPublisher`, `AuditEventFrameEncoder`, `ConfigProvider`).
+- **D (Dependency Inversion):**
+  - `Main` depende de `ConfigProvider` (abstração), não do carregamento concreto.
+  - `ElectionController` depende de `AuditEventFrameEncoder` (abstração), não da estratégia concreta.
+
+## Design Patterns aplicados
+
+- **Facade:** `ElectionApplicationFacade` centraliza a montagem de controller + service + repository e simplifica o `Main`.
+- **Factory Method:** `RepositoryFactory` + `PostgresRepositoryFactory` encapsulam a criação de repositórios a partir do `Transactor`.
+
+## Clean Architecture (resumo)
+
+- **Interface Adapters (entrada):** `ElectionController` (HTTP/WS) traduz requests para casos de uso.
+- **Application Layer:** `ElectionUseCases` (input port) e `ElectionUseCasesLive` (implementação).
+- **Domain + Use Cases:** regras de negócio em `ElectionService` e modelo em `domain/*`.
+- **Infrastructure (saída):** `PostgresRepository`/`InMemoryRepository`, `EventBus`, config/providers.
+- **Composition Root:** `Main` + `ElectionApplicationFacade` fazem wiring das dependências.

@@ -15,6 +15,7 @@ import scala.concurrent.duration.*
  * regista início/fim, mede duração e captura erros.
  */
 object LoggingAspect:
+  /** Envolve uma computação com logs de início/fim e medição de latência. */
   def around[F[_]: Sync: Clock: LoggerFactory, A](operation: String)(fa: F[A]): F[A] =
     Clock[F].monotonic.flatMap { start =>
       LoggerFactory[F].getLogger.info(s"[AOP] START $operation") *>
@@ -36,14 +37,17 @@ object LoggingAspect:
  * O domínio continua limpo e funcional; os logs são adicionados por composição.
  */
 final class LoggedElectionService[F[_]: Sync: Clock: LoggerFactory](target: ElectionServiceAlg[F]) extends ElectionServiceAlg[F]:
+  /** Interceta o caso de uso de registo para observabilidade. */
   def registerVoter(voter: Voter): F[Unit] =
     LoggingAspect.around(s"ElectionService.registerVoter voterId=${voter.id.value}"):
       target.registerVoter(voter)
 
+  /** Interceta o caso de uso de voto para observabilidade. */
   def vote(voterId: VoterId, electionId: ElectionId, candidateId: CandidateId): F[Either[DomainError, Unit]] =
     LoggingAspect.around(s"ElectionService.vote voterId=${voterId.value} electionId=${electionId.value} candidateId=${candidateId.value}"):
       target.vote(voterId, electionId, candidateId)
 
+  /** Interceta o caso de uso de resultados para observabilidade. */
   def results(electionId: ElectionId): F[Map[CandidateId, Int]] =
     LoggingAspect.around(s"ElectionService.results electionId=${electionId.value}"):
       target.results(electionId)

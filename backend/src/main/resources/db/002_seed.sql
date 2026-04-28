@@ -1,3 +1,4 @@
+-- Dados de seed para execução local e demonstração.
 insert into elections (id, title, starts_at, ends_at)
 values (
   '11111111-1111-1111-1111-111111111111',
