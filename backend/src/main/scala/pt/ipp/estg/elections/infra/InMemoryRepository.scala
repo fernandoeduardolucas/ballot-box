@@ -8,29 +8,35 @@ import pt.ipp.estg.elections.repository.ElectionRepository
 import java.time.Instant
 import java.util.UUID
 
+/** Repositório in-memory útil para testes e execução local. */
 final class InMemoryRepository[F[_]: Sync](state: Ref[F, InMemoryRepository.State]) extends ElectionRepository[F]:
+  /** Obtém eleição em memória por id. */
   def findElection(id: ElectionId): F[Option[Election]] =
     state.get.map { currentState =>
       currentState.elections.get(id)
     }
 
+  /** Obtém eleitor em memória por id. */
   def findVoter(id: VoterId): F[Option[Voter]] =
     state.get.map { currentState =>
       currentState.voters.get(id)
     }
 
+  /** Atualiza/insere eleitor no estado interno. */
   def saveVoter(voter: Voter): F[Unit] =
     state.update { currentState =>
       val updatedVoters = currentState.voters.updated(voter.id, voter)
       currentState.copy(voters = updatedVoters)
     }
 
+  /** Acrescenta voto à lista de votos em memória. */
   def saveVote(vote: Vote): F[Unit] =
     state.update { currentState =>
       val updatedVotes = vote :: currentState.votes
       currentState.copy(votes = updatedVotes)
     }
 
+  /** Agrega contagem de votos por candidato para uma eleição. */
   def countVotes(electionId: ElectionId): F[Map[CandidateId, Int]] =
     state.get.map { currentState =>
       val votesForElection = currentState.votes.filter { vote =>
@@ -43,8 +49,10 @@ final class InMemoryRepository[F[_]: Sync](state: Ref[F, InMemoryRepository.Stat
     }
 
 object InMemoryRepository:
+  /** Estado mutável encapsulado em `Ref` para segurança concorrente. */
   final case class State(elections: Map[ElectionId, Election], voters: Map[VoterId, Voter], votes: List[Vote])
 
+  /** Cria estado inicial com eleição/candidatos de demonstração. */
   def create[F[_]: Sync]: F[InMemoryRepository[F]] =
     val eId = ElectionId(UUID.fromString("11111111-1111-1111-1111-111111111111"))
     val c1 = Candidate(CandidateId(UUID.fromString("22222222-2222-2222-2222-222222222222")), "Lista A", "Transparência e acessibilidade")

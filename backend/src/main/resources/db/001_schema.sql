@@ -1,3 +1,4 @@
+-- Esquema base do sistema eleitoral (tabelas transacionais e auditoria).
 create table if not exists elections (
   id uuid primary key,
   title varchar(200) not null,

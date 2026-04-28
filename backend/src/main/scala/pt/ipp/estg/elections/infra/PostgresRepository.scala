@@ -10,7 +10,9 @@ import java.util.UUID
 import pt.ipp.estg.elections.domain.*
 import pt.ipp.estg.elections.repository.ElectionRepository
 
+/** Repositório PostgreSQL via Doobie para persistência real. */
 final class PostgresRepository[F[_]: Async](xa: Transactor[F]) extends ElectionRepository[F]:
+  /** Carrega eleição e respetivos candidatos. */
   def findElection(id: ElectionId): F[Option[Election]] =
     val electionQuery = sql"""
       select id, title, starts_at, ends_at
@@ -34,6 +36,7 @@ final class PostgresRepository[F[_]: Async](xa: Transactor[F]) extends ElectionR
       }
     }.transact(xa)
 
+  /** Carrega eleitor e conjunto de eleições já votadas. */
   def findVoter(id: VoterId): F[Option[Voter]] =
     val voterQuery = sql"""
       select id, full_name
@@ -61,6 +64,7 @@ final class PostgresRepository[F[_]: Async](xa: Transactor[F]) extends ElectionR
         }
     }.transact(xa)
 
+  /** Upsert de eleitor por identificador. */
   def saveVoter(voter: Voter): F[Unit] =
     sql"""
       insert into voters (id, full_name)
@@ -69,12 +73,14 @@ final class PostgresRepository[F[_]: Async](xa: Transactor[F]) extends ElectionR
       set full_name = excluded.full_name
     """.update.run.transact(xa).void
 
+  /** Insere voto individual (com hash do eleitor). */
   def saveVote(vote: Vote): F[Unit] =
     sql"""
       insert into votes (election_id, candidate_id, voter_hash, created_at)
       values (${vote.electionId.value}, ${vote.candidateId.value}, ${vote.voterHash}, ${vote.createdAt})
     """.update.run.transact(xa).void
 
+  /** Agrega total de votos por candidato para uma eleição. */
   def countVotes(electionId: ElectionId): F[Map[CandidateId, Int]] =
     sql"""
       select candidate_id, count(*)::int
@@ -86,4 +92,3 @@ final class PostgresRepository[F[_]: Async](xa: Transactor[F]) extends ElectionR
         CandidateId(candidateId) -> totalVotes
       }.toMap
     }.transact(xa)
-
