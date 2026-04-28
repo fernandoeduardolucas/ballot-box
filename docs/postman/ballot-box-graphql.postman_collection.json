@@ -1,0 +1,166 @@
+{
+  "info": {
+    "_postman_id": "a2ba8391-4d4f-4bc0-8844-6a8f27c6359a",
+    "name": "Ballot Box - GraphQL",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Coleção Postman para cobrir todas as operações GraphQL suportadas pelo backend (health, election, registerVoter, vote, results)."
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"query Health { health { status } }\",\n  \"variables\": {}\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}{{graphqlPath}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "{{graphqlPath}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Election",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"query Election($id: String!) { election(id: $id) { id title startsAt endsAt candidates { id name manifesto } } }\",\n  \"variables\": {\n    \"id\": \"{{electionId}}\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}{{graphqlPath}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "{{graphqlPath}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Register Voter",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"mutation RegisterVoter($id: String!, $fullName: String!, $electionId: String!) { registerVoter(id: $id, fullName: $fullName, electionId: $electionId) { ok } }\",\n  \"variables\": {\n    \"id\": \"{{voterId}}\",\n    \"fullName\": \"{{voterName}}\",\n    \"electionId\": \"{{electionId}}\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}{{graphqlPath}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "{{graphqlPath}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Vote",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"mutation Vote($voterId: String!, $electionId: String!, $candidateId: String!) { vote(voterId: $voterId, electionId: $electionId, candidateId: $candidateId) { accepted } }\",\n  \"variables\": {\n    \"voterId\": \"{{voterId}}\",\n    \"electionId\": \"{{electionId}}\",\n    \"candidateId\": \"{{candidateId}}\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}{{graphqlPath}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "{{graphqlPath}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Results",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"query Results($electionId: String!) { results(electionId: $electionId) }\",\n  \"variables\": {\n    \"electionId\": \"{{electionId}}\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}{{graphqlPath}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "{{graphqlPath}}"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "graphqlPath",
+      "value": "/graphql"
+    },
+    {
+      "key": "electionId",
+      "value": "11111111-1111-1111-1111-111111111111"
+    },
+    {
+      "key": "candidateId",
+      "value": "22222222-2222-2222-2222-222222222222"
+    },
+    {
+      "key": "voterId",
+      "value": "voter-demo-001"
+    },
+    {
+      "key": "voterName",
+      "value": "Eleitor Demo"
+    }
+  ]
+}
