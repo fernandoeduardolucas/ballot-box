@@ -25,8 +25,19 @@ object Main extends IOApp.Simple {
 
   val config: AppConfig = AppConfig.load()
 
+  private val QueryType: ObjectType[ElectionContext, Unit] = ObjectType(
+    "Query",
+    fields[ElectionContext, Unit](
+      Field(
+        name = "health",
+        fieldType = StringType,
+        resolve = _ => "ok"
+      )
+    )
+  )
+
   val schema = Schema(
-    query = ObjectType("Query", fields[ElectionContext, Unit]()),
+    query = QueryType,
     mutation = Some(MutationType.Mutation)
   )
 
