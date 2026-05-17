@@ -22,7 +22,7 @@ lazy val root = (project in file("."))
       "org.typelevel" %% "log4cats-slf4j" % "2.7.0",
       "org.sangria-graphql" %% "sangria" % "3.4.1",
       "org.sangria-graphql" %% "sangria-circe" % "1.3.2",
-      "com.github.pureconfig" %% "pureconfig" % "0.17.4",
+      "com.github.pureconfig" %% "pureconfig-core" % "0.17.4",
       "org.scalameta" %% "munit" % "1.1.0" % Test,
       "org.typelevel" %% "munit-cats-effect" % "2.0.0" % Test
     ),
