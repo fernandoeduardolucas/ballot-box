@@ -1,26 +1,23 @@
-package pt.ipp.estg.elections.aop
+package pt.ipp.estg.election.aop
 
-import cats.effect.{Clock, Sync}
+import cats.effect.Sync
 import cats.syntax.all.*
 import org.typelevel.log4cats.LoggerFactory
-import pt.ipp.estg.elections.domain.*
-import pt.ipp.estg.elections.services.ElectionServiceAlg
-import scala.concurrent.duration.*
 
 /**
- * AOP-style logging aspect.
+ * AOP-style logging helpers.
  *
- * A lógica transversal de logging fica isolada aqui, em vez de ser repetida
- * dentro dos serviços de domínio. O método `around` envolve uma operação,
- * regista início/fim, mede duração e captura erros.
+ * Cross-cutting logging remains isolated here instead of being repeated inside
+ * application services. The `around` method wraps an effect, logs start/end,
+ * measures duration, and logs failures.
  */
 object LoggingAspect:
-  /** Envolve uma computação com logs de início/fim e medição de latência. */
-  def around[F[_]: Sync: Clock: LoggerFactory, A](operation: String)(fa: F[A]): F[A] =
-    Clock[F].monotonic.flatMap { start =>
+  /** Wraps a computation with start/end logs and latency measurement. */
+  def around[F[_]: Sync: LoggerFactory, A](operation: String)(fa: F[A]): F[A] =
+    Sync[F].monotonic.flatMap { start =>
       LoggerFactory[F].getLogger.info(s"[AOP] START $operation") *>
         fa.attempt.flatMap { result =>
-          Clock[F].monotonic.flatMap { end =>
+          Sync[F].monotonic.flatMap { end =>
             val elapsed = (end - start).toMillis
             result match
               case Right(value) =>
@@ -30,24 +27,3 @@ object LoggingAspect:
           }
         }
     }
-
-/**
- * Decorator/AOP proxy para o serviço eleitoral.
- *
- * O domínio continua limpo e funcional; os logs são adicionados por composição.
- */
-final class LoggedElectionService[F[_]: Sync: Clock: LoggerFactory](target: ElectionServiceAlg[F]) extends ElectionServiceAlg[F]:
-  /** Interceta o caso de uso de registo para observabilidade. */
-  def registerVoter(voter: Voter): F[Unit] =
-    LoggingAspect.around(s"ElectionService.registerVoter voterId=${voter.id.value}"):
-      target.registerVoter(voter)
-
-  /** Interceta o caso de uso de voto para observabilidade. */
-  def vote(voterId: VoterId, electionId: ElectionId, candidateId: CandidateId): F[Either[DomainError, Unit]] =
-    LoggingAspect.around(s"ElectionService.vote voterId=${voterId.value} electionId=${electionId.value} candidateId=${candidateId.value}"):
-      target.vote(voterId, electionId, candidateId)
-
-  /** Interceta o caso de uso de resultados para observabilidade. */
-  def results(electionId: ElectionId): F[Map[CandidateId, Int]] =
-    LoggingAspect.around(s"ElectionService.results electionId=${electionId.value}"):
-      target.results(electionId)

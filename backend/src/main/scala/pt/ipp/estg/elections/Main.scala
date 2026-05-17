@@ -18,6 +18,7 @@ import sangria.execution.Executor
 import sangria.marshalling.circe._
 import sangria.parser.QueryParser
 import sangria.schema._
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
 
 object Main extends IOApp.Simple {
@@ -33,7 +34,8 @@ object Main extends IOApp.Simple {
     "org.postgresql.Driver",
     config.db.url,
     config.db.user,
-    config.db.password
+    config.db.password,
+    None
   )
 
   val voterRepo = new DoobieVoterRepository[IO](transactor)
@@ -41,8 +43,10 @@ object Main extends IOApp.Simple {
   val registerUseCase = new RegisterVoterUseCase[IO](voterRepo, hasher)
   val graphqlContext = ElectionContext(registerUseCase)
 
+  private val graphqlRoutePath = config.app.graphql.path.stripPrefix("/")
+
   def graphqlRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
-    case req @ POST -> Root / config.app.graphql.path.stripPrefix("/") =>
+    case req @ POST -> Root / path if path == graphqlRoutePath =>
       req.as[Json].flatMap { body =>
         val query = body.hcursor.get[String]("query").getOrElse("")
         
