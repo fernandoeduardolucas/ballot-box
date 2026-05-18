@@ -25,6 +25,6 @@ object LoggingAspect:
 final class LoggedRegisterVoterUseCase[F[_]: Sync: LoggerFactory](target: RegisterVoterAlg[F])
     extends RegisterVoterAlg[F]:
 
-  def execute(civilIdRaw: String, rawPassword: String): F[Either[RegistrationError, Voter]] =
+  def execute(civilIdRaw: String, rawPassword: String, nut3Code: String): F[Either[RegistrationError, Voter]] =
     LoggingAspect.around(s"RegisterVoterUseCase.execute civilId=$civilIdRaw"):
-      target.execute(civilIdRaw, rawPassword)
+      target.execute(civilIdRaw, rawPassword, nut3Code)

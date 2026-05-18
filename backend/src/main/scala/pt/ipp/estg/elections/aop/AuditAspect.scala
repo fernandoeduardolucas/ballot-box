@@ -11,8 +11,8 @@ final class AuditedRegisterVoterUseCase[F[_]: FlatMap](
     logger: Logger[F]
 ) extends RegisterVoterAlg[F]:
 
-  def execute(civilIdRaw: String, rawPassword: String): F[Either[RegistrationError, Voter]] =
-    target.execute(civilIdRaw, rawPassword).flatTap {
+  def execute(civilIdRaw: String, rawPassword: String, nut3Code: String): F[Either[RegistrationError, Voter]] =
+    target.execute(civilIdRaw, rawPassword, nut3Code).flatTap {
       case Right(voter) =>
         logger.info(s"[AUDIT] REGISTER_SUCCESS civilId=$civilIdRaw voterId=${voter.id.value}")
       case Left(error) =>

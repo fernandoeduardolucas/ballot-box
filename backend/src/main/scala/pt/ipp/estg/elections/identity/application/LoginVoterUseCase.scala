@@ -9,7 +9,7 @@ class LoginVoterUseCase[F[_]: Monad](
   tokenGenerator: TokenGenerator[F]
 ) extends LoginVoterAlg[F] {
 
-  def execute(civilIdRaw: String, rawPassword: String, ip: String): F[Either[LoginError, AuthToken]] =
+  def execute(civilIdRaw: String, rawPassword: String, ip: String): F[Either[LoginError, (AuthToken, Boolean)]] =
     VoterLoginLogic.login[F](civilIdRaw, rawPassword)(
       findVoter      = id   => repository.findByCivilId(id),
       verifyPassword = (raw, hash) => verifier.verify(raw, hash),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:sistema_eleitoral_frontend/core/theme/app_colors.dart';
 import 'package:sistema_eleitoral_frontend/core/services/graphql_service.dart';
 import 'package:sistema_eleitoral_frontend/features/election/data/election_service.dart';
@@ -101,59 +102,52 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.navySurf,
+        backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: AppColors.gold.withValues(alpha: 0.3)),
+          borderRadius: BorderRadius.circular(4),
+          side: const BorderSide(color: AppColors.hairline),
         ),
         contentPadding: const EdgeInsets.fromLTRB(28, 28, 28, 0),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(22),
-              decoration: const BoxDecoration(
-                color: Color(0xFF1A3320),
-                shape: BoxShape.circle,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.successContainer,
+                borderRadius: BorderRadius.circular(4),
               ),
-              child: const Icon(Icons.check_rounded, size: 52, color: Color(0xFF4CAF50)),
+              child: const Icon(Icons.check_rounded, size: 48, color: AppColors.success),
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'Eleição criada!',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: AppColors.offWhite,
+            const SizedBox(height: 20),
+            Text(
+              'Eleição criada.',
+              style: GoogleFonts.instrumentSerif(
+                fontSize: 26, color: AppColors.ink, letterSpacing: -0.3,
               ),
             ),
             const SizedBox(height: 16),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.navyLight,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF1E2D42)),
+              padding: const EdgeInsets.all(14),
+              decoration: const BoxDecoration(
+                color: AppColors.surfaceContainerLow,
+                border: Border(left: BorderSide(color: AppColors.gold, width: 3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     election.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                      color: AppColors.offWhite,
+                    style: GoogleFonts.ibmPlexSans(
+                      fontWeight: FontWeight.w600, fontSize: 15, color: AppColors.ink,
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     election.id,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.subtle,
-                      fontFamily: 'monospace',
+                    style: GoogleFonts.ibmPlexMono(
+                      fontSize: 11, color: AppColors.inkMuted,
                     ),
                   ),
                 ],
@@ -171,10 +165,13 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
               Navigator.pop(context);
             },
             style: FilledButton.styleFrom(
-              minimumSize: const Size(double.infinity, 52),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              minimumSize: const Size(double.infinity, 48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
             ),
-            child: const Text('Concluído', style: TextStyle(fontSize: 15)),
+            child: Text(
+              'CONCLUÍDO',
+              style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 12, letterSpacing: 2),
+            ),
           ),
         ],
       ),
@@ -184,109 +181,95 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.navy,
-      appBar: _buildAppBar(),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader(),
-                const SizedBox(height: 36),
-                _buildFormCard(),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: AppColors.navy,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_rounded, color: AppColors.offWhite),
-        tooltip: 'Voltar',
-        onPressed: () => Navigator.pop(context),
-      ),
-      title: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: AppColors.background,
+      body: Column(
         children: [
-          Text(
-            'COMISSÃO NACIONAL DE ELEIÇÕES',
-            style: TextStyle(
-              fontSize: 10,
-              color: AppColors.gold,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.5,
+          _buildEditorialHeader(),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 640),
+                  child: _buildFormCard(),
+                ),
+              ),
             ),
-          ),
-          Text(
-            'Painel de Administração',
-            style: TextStyle(fontSize: 15, color: AppColors.offWhite),
           ),
         ],
       ),
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: AppColors.gold.withValues(alpha: 0.3)),
-      ),
     );
   }
 
-  Widget _buildHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            color: AppColors.gold.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
+  Widget _buildEditorialHeader() {
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(
+          top: BorderSide(color: AppColors.oxblood, width: 3),
+          bottom: BorderSide(color: AppColors.ink, width: 2),
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 12, 16, 20),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back_rounded, color: AppColors.ink),
+                tooltip: 'Voltar',
+                onPressed: () => Navigator.pop(context),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 4),
+                    Text(
+                      'VotoSeguro — Administração',
+                      style: GoogleFonts.ibmPlexMono(
+                        fontSize: 10, letterSpacing: 1.8, color: AppColors.inkMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    RichText(
+                      text: TextSpan(children: [
+                        TextSpan(
+                          text: 'Novo processo ',
+                          style: GoogleFonts.instrumentSerif(
+                            fontSize: 28, color: AppColors.ink,
+                            letterSpacing: -0.5, height: 1.05,
+                          ),
+                        ),
+                        TextSpan(
+                          text: 'eleitoral.',
+                          style: GoogleFonts.instrumentSerif(
+                            fontSize: 28, color: AppColors.oxblood,
+                            fontStyle: FontStyle.italic,
+                            letterSpacing: -0.5, height: 1.05,
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          child: const Icon(Icons.add_circle_outline_rounded, color: AppColors.gold, size: 28),
         ),
-        const SizedBox(height: 20),
-        const Text(
-          'NOVO PROCESSO ELEITORAL',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 2.5,
-            color: AppColors.gold,
-          ),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'Criar Eleição',
-          style: TextStyle(
-            fontSize: 30,
-            fontWeight: FontWeight.bold,
-            color: AppColors.offWhite,
-            letterSpacing: -0.5,
-          ),
-        ),
-        const SizedBox(height: 10),
-        const Text(
-          'Defina o título e o período da eleição. A data de encerramento tem de ser posterior à data de abertura.',
-          style: TextStyle(fontSize: 15, color: AppColors.subtle, height: 1.6),
-        ),
-      ],
+      ),
     );
   }
 
   Widget _buildFormCard() {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.navySurf,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF1E2D42)),
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.hairline),
       ),
       padding: const EdgeInsets.all(32),
       child: Form(
@@ -294,18 +277,18 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const _FieldLabel(text: 'Título da Eleição'),
+            _SectionLabel(numeral: 'I', text: 'IDENTIFICAÇÃO'),
+            const SizedBox(height: 16),
+            _FieldLabel(text: 'Título da Eleição'),
             const SizedBox(height: 8),
             TextFormField(
               controller: _titleController,
               maxLength: 255,
-              style: const TextStyle(fontSize: 15, color: AppColors.offWhite),
-              decoration: InputDecoration(
+              style: GoogleFonts.ibmPlexSans(fontSize: 15, color: AppColors.ink),
+              decoration: const InputDecoration(
                 hintText: 'Ex: Eleições Presidenciais 2026',
-                prefixIcon: const Icon(Icons.title_rounded),
+                prefixIcon: Icon(Icons.title_rounded),
                 counterText: '',
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               ),
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return 'O título é obrigatório.';
@@ -313,9 +296,9 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
                 return null;
               },
             ),
-            const SizedBox(height: 28),
-            const _FieldLabel(text: 'Período da Eleição'),
-            const SizedBox(height: 12),
+            const SizedBox(height: 36),
+            _SectionLabel(numeral: 'II', text: 'PERÍODO'),
+            const SizedBox(height: 16),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -324,23 +307,22 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
                     label: 'Abertura',
                     icon: Icons.play_circle_outline_rounded,
                     dateTime: _startDateTime,
-                    accentColor: const Color(0xFF4CAF50),
+                    accentColor: AppColors.success,
+                    accentBg: AppColors.successContainer,
                     onTap: () => _pickDateTime(isStart: true),
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
-                  child: Icon(
-                    Icons.arrow_forward_rounded,
-                    color: AppColors.subtle.withValues(alpha: 0.4),
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+                  child: Icon(Icons.arrow_forward_rounded, color: AppColors.hairlineStrong, size: 18),
                 ),
                 Expanded(
                   child: _DatePickerField(
                     label: 'Encerramento',
                     icon: Icons.stop_circle_outlined,
                     dateTime: _endDateTime,
-                    accentColor: const Color(0xFFEF5350),
+                    accentColor: AppColors.oxblood,
+                    accentBg: AppColors.oxbloodContainer,
                     onTap: () => _pickDateTime(isStart: false),
                   ),
                 ),
@@ -359,17 +341,19 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
-                        color: AppColors.navy,
+                        color: AppColors.onPrimary,
                       ),
                     )
                   : const Icon(Icons.how_to_vote_rounded),
               label: Text(
                 _isLoading ? 'A criar eleição...' : 'Criar Eleição',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style: GoogleFonts.ibmPlexSans(
+                  fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.5,
+                ),
               ),
               style: FilledButton.styleFrom(
-                minimumSize: const Size(double.infinity, 56),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                minimumSize: const Size(double.infinity, 52),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
               ),
             ),
           ],
@@ -381,6 +365,34 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
 
 // ─── Sub-widgets ──────────────────────────────────────────────────────────────
 
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({required this.numeral, required this.text});
+  final String numeral;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              '$numeral. $text',
+              style: GoogleFonts.ibmPlexSans(
+                fontSize: 10, fontWeight: FontWeight.w700,
+                letterSpacing: 2, color: AppColors.inkMuted,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        const Divider(color: AppColors.hairline, height: 1, thickness: 1),
+      ],
+    );
+  }
+}
+
 class _FieldLabel extends StatelessWidget {
   const _FieldLabel({required this.text});
   final String text;
@@ -389,11 +401,11 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
-        fontSize: 13,
+      style: GoogleFonts.ibmPlexSans(
+        fontSize: 12,
         fontWeight: FontWeight.w600,
-        letterSpacing: 0.4,
-        color: AppColors.subtle,
+        letterSpacing: 0.3,
+        color: AppColors.inkMuted,
       ),
     );
   }
@@ -405,6 +417,7 @@ class _DatePickerField extends StatelessWidget {
     required this.icon,
     required this.dateTime,
     required this.accentColor,
+    required this.accentBg,
     required this.onTap,
   });
 
@@ -412,6 +425,7 @@ class _DatePickerField extends StatelessWidget {
   final IconData icon;
   final DateTime? dateTime;
   final Color accentColor;
+  final Color accentBg;
   final VoidCallback onTap;
 
   static const _months = [
@@ -429,36 +443,32 @@ class _DatePickerField extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(4),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: hasValue ? accentColor.withValues(alpha: 0.55) : const Color(0xFF2E3D54),
+            color: hasValue ? accentColor.withValues(alpha: 0.6) : AppColors.hairline,
             width: hasValue ? 1.5 : 1.0,
           ),
-          color: hasValue ? accentColor.withValues(alpha: 0.08) : AppColors.navyLight,
+          color: hasValue ? accentBg.withValues(alpha: 0.5) : AppColors.surfaceContainerLow,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(
-                  icon,
-                  size: 13,
-                  color: hasValue ? accentColor : AppColors.subtle,
-                ),
+                Icon(icon, size: 12, color: hasValue ? accentColor : AppColors.inkDim),
                 const SizedBox(width: 5),
                 Text(
                   label.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 10,
+                  style: GoogleFonts.ibmPlexSans(
+                    fontSize: 9,
                     fontWeight: FontWeight.w800,
-                    letterSpacing: 0.8,
-                    color: hasValue ? accentColor : AppColors.subtle,
+                    letterSpacing: 1.2,
+                    color: hasValue ? accentColor : AppColors.inkDim,
                   ),
                 ),
               ],
@@ -470,32 +480,29 @@ class _DatePickerField extends StatelessWidget {
                     children: [
                       Text(
                         _formatDate(dateTime!),
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.offWhite,
+                        style: GoogleFonts.ibmPlexSans(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.ink,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         _formatTime(dateTime!),
-                        style: const TextStyle(fontSize: 13, color: AppColors.subtle),
+                        style: GoogleFonts.ibmPlexMono(
+                          fontSize: 12, color: AppColors.inkMuted,
+                        ),
                       ),
                     ],
                   )
                 : Row(
                     children: [
-                      Icon(
-                        Icons.calendar_today_rounded,
-                        size: 14,
-                        color: AppColors.subtle.withValues(alpha: 0.5),
-                      ),
+                      Icon(Icons.calendar_today_rounded, size: 13, color: AppColors.inkDim),
                       const SizedBox(width: 6),
                       Text(
                         'Selecionar',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.subtle.withValues(alpha: 0.6),
+                        style: GoogleFonts.ibmPlexSans(
+                          fontSize: 13, color: AppColors.inkDim,
                         ),
                       ),
                     ],
@@ -513,24 +520,21 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: cs.errorContainer,
-        borderRadius: BorderRadius.circular(12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: const BoxDecoration(
+        color: AppColors.errorContainer,
+        border: Border(left: BorderSide(color: AppColors.error, width: 3)),
       ),
       child: Row(
         children: [
-          Icon(Icons.error_outline_rounded, color: cs.error, size: 18),
+          const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 16),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
-              style: TextStyle(
-                color: cs.onErrorContainer,
-                fontSize: 13.5,
-                height: 1.4,
+              style: GoogleFonts.atkinsonHyperlegible(
+                fontSize: 13, color: AppColors.onOxbloodContainer,
               ),
             ),
           ),

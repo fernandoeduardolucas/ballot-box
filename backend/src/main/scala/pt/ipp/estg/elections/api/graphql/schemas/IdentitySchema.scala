@@ -6,7 +6,7 @@ import sangria.schema._
 object IdentitySchema {
 
   case class RegistrationErrorPayload(message: String)
-  case class LoginPayload(token: String)
+  case class LoginPayload(token: String, isAdmin: Boolean)
   case class LoginErrorPayload(message: String)
 
   val VoterType: ObjectType[Unit, Voter] = ObjectType(
@@ -35,7 +35,8 @@ object IdentitySchema {
     "LoginPayload",
     "Token JWT gerado após autenticação bem-sucedida",
     fields[Unit, LoginPayload](
-      Field("token", StringType, resolve = _.value.token)
+      Field("token",   StringType,  resolve = _.value.token),
+      Field("isAdmin", BooleanType, resolve = _.value.isAdmin)
     )
   )
 

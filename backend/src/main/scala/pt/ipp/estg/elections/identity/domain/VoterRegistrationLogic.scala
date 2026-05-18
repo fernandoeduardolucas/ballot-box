@@ -10,21 +10,22 @@ object VoterRegistrationLogic {
 
   def registerVoter[F[_]: Monad](
     civilIdStr: String,
-    rawPassword: String
+    rawPassword: String,
+    nut3Code: String
   )(
     checkCivilIdExists: CivilId => F[Boolean],
     hashPassword: String => F[PasswordHash]
   ): F[Either[RegistrationError, Voter]] = {
 
     val pipeline = for {
-      validInputs <- EitherT.fromEither[F](Voter.validateFormat(civilIdStr, rawPassword))
-      (civilId, validPassword) = validInputs
+      validInputs <- EitherT.fromEither[F](Voter.validateFormat(civilIdStr, rawPassword, nut3Code))
+      (civilId, validPassword, region) = validInputs
 
       exists <- EitherT.liftF(checkCivilIdExists(civilId))
       _ <- EitherT.cond[F](!exists, (), CivilIdAlreadyExists: RegistrationError)
 
       hashed <- EitherT.liftF(hashPassword(validPassword))
-    } yield Voter(VoterId(UUID.randomUUID()), civilId, hashed)
+    } yield Voter(VoterId(UUID.randomUUID()), civilId, hashed, region)
 
     pipeline.value
   }

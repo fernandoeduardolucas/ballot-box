@@ -18,11 +18,12 @@ import org.typelevel.ci.CIString
 import org.typelevel.log4cats.LoggerFactory
 import org.typelevel.log4cats.slf4j.{Slf4jFactory, Slf4jLogger}
 import pt.ipp.estg.election.aop.{AuditedLoginUseCase, AuditedRegisterVoterUseCase, LoggedRegisterVoterUseCase}
-import pt.ipp.estg.election.api.graphql.{ElectionContext, MutationType}
+import pt.ipp.estg.election.api.graphql.{ElectionContext, MutationType, QueryType}
 import pt.ipp.estg.election.config.AppConfig
-import pt.ipp.estg.election.election.application.CreateElectionUseCase
-import pt.ipp.estg.election.election.infrastructure.DoobieElectionRepository
+import pt.ipp.estg.election.election.application.{AddCandidateUseCase, CreateElectionUseCase, ListActiveElectionsUseCase, ListAllElectionsUseCase, ListElectionCandidatesUseCase}
+import pt.ipp.estg.election.election.infrastructure.{DoobieCandidateRepository, DoobieElectionRepository}
 import pt.ipp.estg.election.identity.application.{LoginVoterUseCase, RegisterVoterUseCase}
+import pt.ipp.estg.election.identity.domain.AuthenticatedVoter
 import pt.ipp.estg.election.identity.infrastructure._
 import sangria.execution.Executor
 import sangria.marshalling.circe._
@@ -49,6 +50,13 @@ object Main extends IOApp.Simple {
       .map(_.head.value.split(",").head.trim)
       .orElse(req.headers.get(CIString("X-Real-Ip")).map(_.head.value))
       .getOrElse("unknown")
+
+  private def extractBearerToken(req: Request[IO]): Option[String] =
+    req.headers
+      .get(CIString("Authorization"))
+      .map(_.head.value)
+      .filter(_.startsWith("Bearer "))
+      .map(_.drop(7).trim)
 
   def run: IO[Unit] = {
     val config = AppConfig.load()
@@ -88,13 +96,18 @@ object Main extends IOApp.Simple {
     val baseLoginUseCase = new LoginVoterUseCase[IO](voterRepo, verifier, tokenGenerator)
     val auditedLogin     = new AuditedLoginUseCase[IO](baseLoginUseCase, auditLogRepo)
 
-    val electionRepo  = new DoobieElectionRepository[IO](transactor)
-    val createElection = new CreateElectionUseCase[IO](electionRepo)
+    val tokenVerifier     = new JwtTokenVerifier[IO](config.security.jwt.secret)
+
+    val electionRepo            = new DoobieElectionRepository[IO](transactor)
+    val candidateRepo           = new DoobieCandidateRepository[IO](transactor)
+    val createElection          = new CreateElectionUseCase[IO](electionRepo)
+    val addCandidate            = new AddCandidateUseCase[IO](electionRepo, candidateRepo)
+    val listActiveElections     = new ListActiveElectionsUseCase[IO](electionRepo)
+    val listAllElections        = new ListAllElectionsUseCase[IO](electionRepo)
+    val listElectionCandidates  = new ListElectionCandidatesUseCase[IO](candidateRepo)
 
     val schema = Schema(
-      query    = ObjectType("Query", fields[ElectionContext, Unit](
-        Field("health", sangria.schema.StringType, resolve = _ => "ok")
-      )),
+      query    = QueryType.Query,
       mutation = Some(MutationType.Mutation)
     )
 
@@ -107,22 +120,25 @@ object Main extends IOApp.Simple {
       _ <- {
         def graphqlRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
           case req @ POST -> Root / `graphqlPath` =>
-            val ip      = extractIp(req)
-            val context = ElectionContext(loggedRegister, auditedLogin, createElection, dispatcher, ip)
-
-            req.as[Json].flatMap { body =>
-              val query     = body.hcursor.get[String]("query").getOrElse("")
-              val variables = body.hcursor.get[Json]("variables").getOrElse(Json.obj())
-              QueryParser.parse(query) match {
-                case Success(ast) =>
-                  IO.fromFuture(IO(
-                    Executor.execute(schema = schema, queryAst = ast, userContext = context, variables = variables)
-                  )).flatMap(res => Ok(res))
-                    .handleErrorWith(e => BadRequest(Json.obj("error" -> Json.fromString(e.getMessage))))
-                case Failure(error) =>
-                  BadRequest(Json.obj("error" -> Json.fromString(error.getMessage)))
+            val ip       = extractIp(req)
+            val rawToken = extractBearerToken(req)
+            for {
+              authedVoter <- rawToken.fold(IO.pure(Option.empty[AuthenticatedVoter]))(tokenVerifier.verify)
+              context      = ElectionContext(loggedRegister, auditedLogin, createElection, addCandidate, listActiveElections, listAllElections, listElectionCandidates, authedVoter, dispatcher, ip)
+              response    <- req.as[Json].flatMap { body =>
+                val query     = body.hcursor.get[String]("query").getOrElse("")
+                val variables = body.hcursor.get[Json]("variables").getOrElse(Json.obj())
+                QueryParser.parse(query) match {
+                  case Success(ast) =>
+                    IO.fromFuture(IO(
+                      Executor.execute(schema = schema, queryAst = ast, userContext = context, variables = variables)
+                    )).flatMap(res => Ok(res))
+                      .handleErrorWith(e => BadRequest(Json.obj("error" -> Json.fromString(e.getMessage))))
+                  case Failure(error) =>
+                    BadRequest(Json.obj("error" -> Json.fromString(error.getMessage)))
+                }
               }
-            }
+            } yield response
         }
 
         EmberServerBuilder

@@ -15,8 +15,10 @@ class JwtTokenGenerator[F[_]: Sync](secret: String, expirationSeconds: Long) ext
     Sync[F].delay {
       val now = Instant.now()
       val payload = Json.obj(
-        "sub"     -> voter.id.value.toString.asJson,
-        "civilId" -> voter.civilId.value.asJson
+        "sub"        -> voter.id.value.toString.asJson,
+        "civilId"    -> voter.civilId.value.asJson,
+        "nut3Region" -> voter.nut3Region.code.asJson,
+        "isAdmin"    -> voter.isAdmin.asJson
       ).noSpaces
 
       val claim = JwtClaim(
