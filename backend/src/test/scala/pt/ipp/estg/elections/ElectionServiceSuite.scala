@@ -1,29 +1,34 @@
-package pt.ipp.estg.elections
+package pt.ipp.estg.election
 
 import cats.effect.IO
 import munit.CatsEffectSuite
-import pt.ipp.estg.elections.domain.*
-import pt.ipp.estg.elections.infra.{EventBus, InMemoryRepository}
-import pt.ipp.estg.elections.services.ElectionService
-import java.util.UUID
+import pt.ipp.estg.election.identity.application._
+import pt.ipp.estg.election.identity.domain._
 
-/** Testes de comportamento do serviço eleitoral. */
-class ElectionServiceSuite extends CatsEffectSuite:
-  /** Garante que o mesmo eleitor não consegue votar duas vezes na mesma eleição. */
-  test("eleitor elegível consegue votar uma única vez") {
-    val e = ElectionId(UUID.fromString("11111111-1111-1111-1111-111111111111"))
-    val c = CandidateId(UUID.fromString("22222222-2222-2222-2222-222222222222"))
-    val voter = Voter(VoterId("12345678"), "Ana Silva", Set(e), Set.empty)
-    for
-      repo <- InMemoryRepository.create[IO]
-      bus <- EventBus.create[IO]
-      service = ElectionService[IO](repo, bus)
-      voterRegistration <- service.registerVoter(voter)
-      first <- service.vote(voter.id, e, c)
-      second <- service.vote(voter.id, e, c)
-    yield
-      val registrationCompleted = voterRegistration
-      assertEquals(registrationCompleted, ())
-      assert(first.isRight)
-      assert(second.isLeft)
-  }
+class RegisterVoterUseCaseSuite extends CatsEffectSuite:
+
+  class StubVoterRepository(existingIds: Set[String]) extends VoterRepository[IO]:
+    def checkExists(civilId: CivilId): IO[Boolean] = IO.pure(existingIds.contains(civilId.value))
+    def save(voter: Voter): IO[Unit]                = IO.unit
+
+  class StubPasswordHasher extends PasswordHasher[IO]:
+    def hash(rawPassword: String): IO[PasswordHash] = IO.pure(PasswordHash(s"hashed:$rawPassword"))
+
+  private def makeUseCase(existingIds: Set[String] = Set.empty): RegisterVoterUseCase[IO] =
+    new RegisterVoterUseCase[IO](new StubVoterRepository(existingIds), new StubPasswordHasher)
+
+  test("regista eleitor com dados válidos"):
+    makeUseCase().execute("12345678", "password123").map: result =>
+      assert(result.isRight)
+
+  test("rejeita civil_id já registado"):
+    makeUseCase(existingIds = Set("12345678")).execute("12345678", "password123").map: result =>
+      assertEquals(result, Left(CivilIdAlreadyExists))
+
+  test("rejeita civil_id com formato inválido (menos de 8 caracteres)"):
+    makeUseCase().execute("1234", "password123").map: result =>
+      assertEquals(result, Left(InvalidCivilIdFormat))
+
+  test("rejeita password fraca (menos de 8 caracteres)"):
+    makeUseCase().execute("12345678", "weak").map: result =>
+      assertEquals(result, Left(WeakPassword))
