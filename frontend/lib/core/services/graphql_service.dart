@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:sistema_eleitoral_frontend/core/auth/auth_store.dart';
 
 class GraphQLService {
   const GraphQLService({required this.baseUrl});
@@ -10,9 +11,13 @@ class GraphQLService {
     required String query,
     Map<String, dynamic>? variables,
   }) async {
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    final token = AuthStore.instance.token;
+    if (token != null) headers['Authorization'] = 'Bearer $token';
+
     final response = await http.post(
       Uri.parse(baseUrl),
-      headers: {'Content-Type': 'application/json'},
+      headers: headers,
       body: jsonEncode({
         'query': query,
         if (variables != null) 'variables': variables,

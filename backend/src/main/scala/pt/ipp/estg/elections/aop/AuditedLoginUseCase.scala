@@ -10,7 +10,7 @@ final class AuditedLoginUseCase[F[_]: FlatMap](
   auditLog: AuditLogAlg[F]
 ) extends LoginVoterAlg[F] {
 
-  def execute(civilIdRaw: String, rawPassword: String, ip: String): F[Either[LoginError, AuthToken]] =
+  def execute(civilIdRaw: String, rawPassword: String, ip: String): F[Either[LoginError, (AuthToken, Boolean)]] =
     target.execute(civilIdRaw, rawPassword, ip).flatTap {
       case Right(_) =>
         auditLog.record(AuditEvent("LOGIN", Some(civilIdRaw), ip, success = true, reason = None))

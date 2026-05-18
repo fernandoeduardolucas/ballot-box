@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:sistema_eleitoral_frontend/core/theme/app_colors.dart';
 
 class VoteScreen extends StatefulWidget {
@@ -72,39 +73,11 @@ class _VoteScreenState extends State<VoteScreen> {
         _selectedId != null ? _candidates.firstWhere((c) => c.id == _selectedId) : null;
 
     return Scaffold(
-      backgroundColor: AppColors.navy,
-      appBar: AppBar(
-        backgroundColor: AppColors.navy,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.offWhite),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'ELEIÇÕES PRESIDENCIAIS 2026',
-              style: TextStyle(
-                fontSize: 10,
-                color: AppColors.gold,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.5,
-              ),
-            ),
-            Text(
-              'Selecione o seu candidato',
-              style: TextStyle(fontSize: 15, color: AppColors.offWhite),
-            ),
-          ],
-        ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: AppColors.gold.withValues(alpha: 0.3)),
-        ),
-      ),
+      backgroundColor: AppColors.background,
       body: Column(
         children: [
-          const _StatusBar(),
+          _buildEditorialHeader(),
+          _StatusBar(voted: _voted),
           Expanded(
             child: Center(
               child: ConstrainedBox(
@@ -114,8 +87,10 @@ class _VoteScreenState extends State<VoteScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const _InstructionBanner(),
-                      const SizedBox(height: 20),
+                      if (!_voted) ...[
+                        const _InstructionBanner(),
+                        const SizedBox(height: 20),
+                      ],
                       for (final c in _candidates)
                         _CandidateCard(
                           candidate: c,
@@ -123,7 +98,7 @@ class _VoteScreenState extends State<VoteScreen> {
                           disabled: _voted,
                           onTap: () => setState(() => _selectedId = c.id),
                         ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 8),
                       if (!_voted)
                         _VoteButton(
                           enabled: selected != null,
@@ -131,6 +106,8 @@ class _VoteScreenState extends State<VoteScreen> {
                         ),
                       if (_voted && selected != null)
                         _VotedBanner(candidate: selected),
+                      const SizedBox(height: 32),
+                      _buildFooter(),
                     ],
                   ),
                 ),
@@ -142,31 +119,209 @@ class _VoteScreenState extends State<VoteScreen> {
     );
   }
 
+  Widget _buildEditorialHeader() {
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(
+          top: BorderSide(color: AppColors.oxblood, width: 3),
+          bottom: BorderSide(color: AppColors.ink, width: 2),
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 12, 16, 18),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back_rounded, color: AppColors.ink),
+                tooltip: 'Voltar',
+                onPressed: () => Navigator.pop(context),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 4),
+                    Text(
+                      'VotoSeguro — Boletim de Voto',
+                      style: GoogleFonts.ibmPlexMono(
+                        fontSize: 10, letterSpacing: 1.8, color: AppColors.inkMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    RichText(
+                      text: TextSpan(children: [
+                        TextSpan(
+                          text: 'Eleições Presidenciais ',
+                          style: GoogleFonts.instrumentSerif(
+                            fontSize: 24, color: AppColors.ink,
+                            letterSpacing: -0.4, height: 1.1,
+                          ),
+                        ),
+                        TextSpan(
+                          text: '2026.',
+                          style: GoogleFonts.instrumentSerif(
+                            fontSize: 24, color: AppColors.oxblood,
+                            fontStyle: FontStyle.italic,
+                            letterSpacing: -0.4, height: 1.1,
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFooter() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: const BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        border: Border(left: BorderSide(color: AppColors.oxblood, width: 3)),
+      ),
+      child: RichText(
+        text: TextSpan(children: [
+          TextSpan(
+            text: 'O seu voto é ',
+            style: GoogleFonts.atkinsonHyperlegible(
+              fontSize: 12, color: AppColors.inkMuted, height: 1.6,
+            ),
+          ),
+          TextSpan(
+            text: 'secreto',
+            style: GoogleFonts.instrumentSerif(
+              fontSize: 13, color: AppColors.oxblood,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          TextSpan(
+            text: ', ',
+            style: GoogleFonts.atkinsonHyperlegible(
+              fontSize: 12, color: AppColors.inkMuted,
+            ),
+          ),
+          TextSpan(
+            text: 'cifrado',
+            style: GoogleFonts.instrumentSerif(
+              fontSize: 13, color: AppColors.oxblood,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          TextSpan(
+            text: ' e ',
+            style: GoogleFonts.atkinsonHyperlegible(
+              fontSize: 12, color: AppColors.inkMuted,
+            ),
+          ),
+          TextSpan(
+            text: 'verificável',
+            style: GoogleFonts.instrumentSerif(
+              fontSize: 13, color: AppColors.oxblood,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          TextSpan(
+            text: '. O endereço IP não é associado ao boletim.',
+            style: GoogleFonts.atkinsonHyperlegible(
+              fontSize: 12, color: AppColors.inkMuted, height: 1.6,
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
   Future<void> _confirmVote(_Candidate candidate) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.navySurf,
+        backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: AppColors.gold.withValues(alpha: 0.3)),
+          borderRadius: BorderRadius.circular(4),
+          side: const BorderSide(color: AppColors.hairline),
         ),
-        title: const Text(
-          'Confirmar Voto',
-          style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.w700),
+        titlePadding: const EdgeInsets.fromLTRB(28, 28, 28, 0),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'CONFIRMAR VOTO',
+              style: GoogleFonts.ibmPlexSans(
+                fontSize: 10, fontWeight: FontWeight.w700,
+                letterSpacing: 2, color: AppColors.inkMuted,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Esta acção é irreversível.',
+              style: GoogleFonts.instrumentSerif(
+                fontSize: 22, color: AppColors.ink, letterSpacing: -0.3,
+              ),
+            ),
+          ],
         ),
-        content: Text(
-          'Confirma o seu voto no candidato:\n\n"${candidate.name}"\n\nEsta ação é irreversível.',
-          style: const TextStyle(color: AppColors.offWhite, height: 1.6),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar', style: TextStyle(color: AppColors.subtle)),
+        contentPadding: const EdgeInsets.fromLTRB(28, 16, 28, 0),
+        content: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: const BoxDecoration(
+            color: AppColors.surfaceContainerLow,
+            border: Border(left: BorderSide(color: AppColors.gold, width: 3)),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Confirmar Voto'),
+          child: Text(
+            '"${candidate.name}"',
+            style: GoogleFonts.instrumentSerif(
+              fontSize: 18, color: AppColors.ink,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(28, 20, 28, 24),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                    side: const BorderSide(color: AppColors.hairlineStrong),
+                    foregroundColor: AppColors.ink,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  ),
+                  child: Text(
+                    'Cancelar',
+                    style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                  ),
+                  child: Text(
+                    'CONFIRMAR',
+                    style: GoogleFonts.ibmPlexSans(
+                      fontWeight: FontWeight.w700, fontSize: 12, letterSpacing: 2,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -178,32 +333,39 @@ class _VoteScreenState extends State<VoteScreen> {
 // ─── Sub-widgets ──────────────────────────────────────────────────────────────
 
 class _StatusBar extends StatelessWidget {
-  const _StatusBar();
+  const _StatusBar({required this.voted});
+  final bool voted;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppColors.navyLight,
+      color: AppColors.surfaceContainerLow,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFF1B3A20),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFF2E7D32)),
+              color: AppColors.successContainer,
+              border: Border.all(color: AppColors.success.withValues(alpha: 0.4)),
             ),
-            child: const Row(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _Dot(color: Color(0xFF4CAF50)),
-                SizedBox(width: 6),
+                Container(
+                  width: 6, height: 6,
+                  decoration: const BoxDecoration(
+                    color: AppColors.success,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
                 Text(
                   'VOTAÇÃO ABERTA',
-                  style: TextStyle(
-                    color: Color(0xFF81C784),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
+                  style: GoogleFonts.ibmPlexMono(
+                    color: AppColors.success,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: 1.2,
                   ),
                 ),
@@ -211,25 +373,16 @@ class _StatusBar extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          const Icon(Icons.timer_outlined, size: 13, color: AppColors.subtle),
+          const Icon(Icons.timer_outlined, size: 13, color: AppColors.inkMuted),
           const SizedBox(width: 5),
-          const Text(
+          Text(
             'Encerra em 2h 45m',
-            style: TextStyle(color: AppColors.subtle, fontSize: 12),
+            style: GoogleFonts.ibmPlexMono(color: AppColors.inkMuted, fontSize: 11),
           ),
         ],
       ),
     );
   }
-}
-
-class _Dot extends StatelessWidget {
-  const _Dot({required this.color});
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) =>
-      Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle));
 }
 
 class _InstructionBanner extends StatelessWidget {
@@ -238,20 +391,21 @@ class _InstructionBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: AppColors.gold.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.gold.withValues(alpha: 0.22)),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: const BoxDecoration(
+        color: AppColors.goldContainer,
+        border: Border(left: BorderSide(color: AppColors.gold, width: 3)),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.info_outline_rounded, color: AppColors.gold, size: 18),
-          SizedBox(width: 12),
+          const Icon(Icons.info_outline_rounded, color: AppColors.gold, size: 16),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               'Selecione o candidato da sua preferência e prima "Votar". O seu voto é secreto e inviolável.',
-              style: TextStyle(color: AppColors.offWhite, fontSize: 13, height: 1.5),
+              style: GoogleFonts.atkinsonHyperlegible(
+                color: AppColors.onGoldContainer, fontSize: 13, height: 1.5,
+              ),
             ),
           ),
         ],
@@ -275,32 +429,36 @@ class _CandidateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 10),
       child: InkWell(
         onTap: disabled ? null : onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(4),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: isSelected
-                ? candidate.partyColor.withValues(alpha: 0.10)
-                : AppColors.navySurf,
-            borderRadius: BorderRadius.circular(14),
+                ? candidate.partyColor.withValues(alpha: 0.06)
+                : AppColors.surface,
+            borderRadius: BorderRadius.circular(4),
             border: Border.all(
-              color: isSelected ? candidate.partyColor : const Color(0xFF1E2D42),
-              width: isSelected ? 2 : 1,
+              color: isSelected
+                  ? candidate.partyColor.withValues(alpha: 0.7)
+                  : AppColors.hairline,
+              width: isSelected ? 1.5 : 1.0,
             ),
           ),
           child: Row(
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
-                  color: candidate.partyColor.withValues(alpha: 0.18),
+                  color: candidate.partyColor.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
-                  border: Border.all(color: candidate.partyColor.withValues(alpha: 0.5)),
+                  border: Border.all(
+                    color: candidate.partyColor.withValues(alpha: 0.4),
+                  ),
                 ),
                 alignment: Alignment.center,
                 child: Text(
@@ -316,14 +474,14 @@ class _CandidateCard extends StatelessWidget {
               ClipOval(
                 child: Image.network(
                   candidate.imageUrl,
-                  width: 64,
-                  height: 64,
+                  width: 60,
+                  height: 60,
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => Container(
-                    width: 64,
-                    height: 64,
-                    color: AppColors.navyLight,
-                    child: const Icon(Icons.person_rounded, color: AppColors.subtle, size: 30),
+                    width: 60,
+                    height: 60,
+                    color: AppColors.surfaceContainerLow,
+                    child: const Icon(Icons.person_rounded, color: AppColors.inkDim, size: 28),
                   ),
                 ),
               ),
@@ -334,9 +492,9 @@ class _CandidateCard extends StatelessWidget {
                   children: [
                     Text(
                       candidate.name,
-                      style: const TextStyle(
-                        color: AppColors.offWhite,
-                        fontWeight: FontWeight.w700,
+                      style: GoogleFonts.ibmPlexSans(
+                        color: AppColors.ink,
+                        fontWeight: FontWeight.w600,
                         fontSize: 15,
                       ),
                     ),
@@ -346,12 +504,12 @@ class _CandidateCard extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                           decoration: BoxDecoration(
-                            color: candidate.partyColor.withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(4),
+                            color: candidate.partyColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(3),
                           ),
                           child: Text(
                             candidate.acronym,
-                            style: TextStyle(
+                            style: GoogleFonts.ibmPlexSans(
                               color: candidate.partyColor,
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
@@ -363,7 +521,9 @@ class _CandidateCard extends StatelessWidget {
                         Flexible(
                           child: Text(
                             candidate.party,
-                            style: const TextStyle(color: AppColors.subtle, fontSize: 12),
+                            style: GoogleFonts.ibmPlexSans(
+                              color: AppColors.inkMuted, fontSize: 12,
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -377,8 +537,11 @@ class _CandidateCard extends StatelessWidget {
                 duration: const Duration(milliseconds: 180),
                 child: Container(
                   padding: const EdgeInsets.all(5),
-                  decoration: BoxDecoration(color: candidate.partyColor, shape: BoxShape.circle),
-                  child: const Icon(Icons.check_rounded, color: Colors.white, size: 14),
+                  decoration: BoxDecoration(
+                    color: candidate.partyColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check_rounded, color: Colors.white, size: 13),
                 ),
               ),
             ],
@@ -399,19 +562,24 @@ class _VoteButton extends StatelessWidget {
     return AnimatedOpacity(
       opacity: enabled ? 1 : 0.35,
       duration: const Duration(milliseconds: 200),
-      child: FilledButton.icon(
-        onPressed: enabled ? onVote : null,
-        icon: const Icon(Icons.how_to_vote_rounded),
-        label: const Text(
-          'Votar',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 0.5),
-        ),
-        style: FilledButton.styleFrom(
-          minimumSize: const Size(double.infinity, 56),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          backgroundColor: AppColors.gold,
-          foregroundColor: AppColors.navy,
-        ),
+      child: Column(
+        children: [
+          FilledButton.icon(
+            onPressed: enabled ? onVote : null,
+            icon: const Icon(Icons.how_to_vote_rounded),
+            label: Text(
+              'VOTAR',
+              style: GoogleFonts.ibmPlexSans(
+                fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 2,
+              ),
+            ),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(double.infinity, 52),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
       ),
     );
   }
@@ -424,30 +592,30 @@ class _VotedBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFF0C2010),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF2E7D32)),
+        color: AppColors.successContainer,
+        border: Border.all(color: AppColors.success.withValues(alpha: 0.4)),
       ),
       child: Column(
         children: [
-          const Icon(Icons.verified_rounded, color: Color(0xFF4CAF50), size: 48),
-          const SizedBox(height: 16),
-          const Text(
-            'Voto Registado com Sucesso',
-            style: TextStyle(
-              color: Color(0xFF81C784),
-              fontWeight: FontWeight.w700,
-              fontSize: 17,
+          const Icon(Icons.verified_rounded, color: AppColors.success, size: 44),
+          const SizedBox(height: 14),
+          Text(
+            'Voto Registado.',
+            style: GoogleFonts.instrumentSerif(
+              color: AppColors.success, fontSize: 22, letterSpacing: -0.3,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
-            'O seu voto em ${candidate.name} foi registado com sucesso e é inviolável.',
-            style: const TextStyle(color: AppColors.offWhite, fontSize: 13, height: 1.6),
+            'O seu voto em ${candidate.name} foi registado com sucesso.',
+            style: GoogleFonts.atkinsonHyperlegible(
+              color: AppColors.success, fontSize: 13, height: 1.6,
+            ),
             textAlign: TextAlign.center,
           ),
+          const SizedBox(height: 16),
         ],
       ),
     );

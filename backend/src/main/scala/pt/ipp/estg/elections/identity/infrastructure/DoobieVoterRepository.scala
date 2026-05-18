@@ -4,7 +4,7 @@ import cats.effect.MonadCancelThrow
 import cats.syntax.functor._
 import doobie._
 import doobie.implicits._
-import pt.ipp.estg.election.identity.domain.{CivilId, PasswordHash, Voter, VoterId, VoterRepository}
+import pt.ipp.estg.election.identity.domain.{CivilId, Nut3Region, PasswordHash, Voter, VoterId, VoterRepository}
 import java.util.UUID
 
 class DoobieVoterRepository[F[_]: MonadCancelThrow](xa: Transactor[F]) extends VoterRepository[F] {
@@ -20,19 +20,21 @@ class DoobieVoterRepository[F[_]: MonadCancelThrow](xa: Transactor[F]) extends V
 
   def save(voter: Voter): F[Unit] =
     sql"""
-      INSERT INTO voters (id, civil_id, password_hash)
-      VALUES (${voter.id.value}, ${voter.civilId.value}, ${voter.password.value})
+      INSERT INTO voters (id, civil_id, password_hash, nut3_region, is_admin)
+      VALUES (${voter.id.value}, ${voter.civilId.value}, ${voter.password.value}, ${voter.nut3Region.code}, ${voter.isAdmin})
     """.update.run.transact(xa).void
 
   def findByCivilId(civilId: CivilId): F[Option[Voter]] =
     sql"""
-      SELECT id, civil_id, password_hash
+      SELECT id, civil_id, password_hash, nut3_region, is_admin
       FROM voters
       WHERE civil_id = ${civilId.value}
-    """.query[(java.util.UUID, String, String)]
+    """.query[(UUID, String, String, String, Boolean)]
       .option
       .transact(xa)
-      .map(_.map { case (id, cid, hash) =>
-        Voter(VoterId(id), CivilId(cid), PasswordHash(hash))
+      .map(_.flatMap { case (id, cid, hash, regionCode, admin) =>
+        Nut3Region.fromCode(regionCode).map { region =>
+          Voter(VoterId(id), CivilId(cid), PasswordHash(hash), region, admin)
+        }
       })
 }

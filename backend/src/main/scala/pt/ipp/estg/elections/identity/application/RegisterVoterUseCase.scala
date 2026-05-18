@@ -9,11 +9,12 @@ class RegisterVoterUseCase[F[_]: Monad](
   hasher: PasswordHasher[F]
 ) extends RegisterVoterAlg[F] {
 
-  def execute(civilIdRaw: String, rawPassword: String): F[Either[RegistrationError, Voter]] = {
-    
+  def execute(civilIdRaw: String, rawPassword: String, nut3Code: String): F[Either[RegistrationError, Voter]] = {
+
     val domainResult: F[Either[RegistrationError, Voter]] = VoterRegistrationLogic.registerVoter[F](
       civilIdRaw,
-      rawPassword
+      rawPassword,
+      nut3Code
     )(
       checkCivilIdExists = id => repository.checkExists(id),
       hashPassword = pass => hasher.hash(pass)

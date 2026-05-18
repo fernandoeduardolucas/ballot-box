@@ -13,7 +13,7 @@ object VoterLoginLogic {
     findVoter:      CivilId => F[Option[Voter]],
     verifyPassword: (String, PasswordHash) => F[Boolean],
     generateToken:  Voter => F[AuthToken]
-  ): F[Either[LoginError, AuthToken]] = {
+  ): F[Either[LoginError, (AuthToken, Boolean)]] = {
 
     val pipeline = for {
       civilId <- EitherT.fromEither[F](
@@ -23,7 +23,7 @@ object VoterLoginLogic {
       valid  <- EitherT.liftF(verifyPassword(rawPassword, voter.password))
       _      <- EitherT.cond[F](valid, (), InvalidPassword: LoginError)
       token  <- EitherT.liftF(generateToken(voter))
-    } yield token
+    } yield (token, voter.isAdmin)
 
     pipeline.value
   }

@@ -3,20 +3,28 @@ package pt.ipp.estg.election.api.graphql
 import cats.effect.IO
 import pt.ipp.estg.election.api.graphql.schemas.ElectionSchema._
 import pt.ipp.estg.election.api.graphql.schemas.IdentitySchema._
-import pt.ipp.estg.election.election.domain.{EndDateBeforeStartDate, TitleTooShort}
+import pt.ipp.estg.election.election.domain.{CandidateNameTooShort, ElectionAlreadyStarted, ElectionNotFound, EndDateBeforeStartDate, TitleTooShort}
 import pt.ipp.estg.election.identity.domain._
 import sangria.schema._
 
 import java.time.Instant
+import java.util.UUID
+import scala.concurrent.Future
 import scala.util.Try
 
 object MutationType {
 
-  val CivilIdArg   = Argument("civilId",   StringType)
-  val PasswordArg  = Argument("password",  StringType)
-  val TitleArg     = Argument("title",     StringType)
-  val StartDateArg = Argument("startDate", StringType)
-  val EndDateArg   = Argument("endDate",   StringType)
+  val CivilIdArg    = Argument("civilId",    StringType)
+  val PasswordArg   = Argument("password",   StringType)
+  val Nut3RegionArg = Argument("nut3Region", StringType)
+  val TitleArg      = Argument("title",      StringType)
+  val StartDateArg  = Argument("startDate",  StringType)
+  val EndDateArg    = Argument("endDate",    StringType)
+  val ElectionIdArg = Argument("electionId", StringType)
+  val NameArg       = Argument("name",       StringType)
+  val PartyArg      = Argument("party",      OptionInputType(StringType))
+  val PhotoUrlArg   = Argument("photoUrl",   OptionInputType(StringType))
+  val NumberArg     = Argument("number",     IntType)
 
   val Mutation: ObjectType[ElectionContext, Unit] = ObjectType(
     "Mutation",
@@ -25,17 +33,19 @@ object MutationType {
       Field(
         name      = "registerVoter",
         fieldType = RegisterVoterPayloadType,
-        arguments = CivilIdArg :: PasswordArg :: Nil,
+        arguments = CivilIdArg :: PasswordArg :: Nut3RegionArg :: Nil,
         resolve   = ctx => {
-          val civilId  = ctx.arg(CivilIdArg)
-          val password = ctx.arg(PasswordArg)
+          val civilId   = ctx.arg(CivilIdArg)
+          val password  = ctx.arg(PasswordArg)
+          val nut3Code  = ctx.arg(Nut3RegionArg)
 
           ctx.ctx.dispatcher.unsafeToFuture(
-            ctx.ctx.registerVoterUseCase.execute(civilId, password).map {
+            ctx.ctx.registerVoterUseCase.execute(civilId, password, nut3Code).map {
               case Right(voter)               => voter
               case Left(CivilIdAlreadyExists) => RegistrationErrorPayload("O número de identificação civil já está registado.")
               case Left(InvalidCivilIdFormat) => RegistrationErrorPayload("Formato do identificador civil inválido.")
               case Left(WeakPassword)         => RegistrationErrorPayload("A palavra-passe é demasiado fraca.")
+              case Left(InvalidNut3Region)    => RegistrationErrorPayload("Região NUT3 inválida.")
             }
           )
         }
@@ -52,9 +62,9 @@ object MutationType {
 
           ctx.ctx.dispatcher.unsafeToFuture(
             ctx.ctx.loginVoterUseCase.execute(civilId, password, ip).map {
-              case Right(token)          => LoginPayload(token.value)
-              case Left(VoterNotFound)   => LoginErrorPayload("Eleitor não encontrado.")
-              case Left(InvalidPassword) => LoginErrorPayload("Credenciais inválidas.")
+              case Right((token, isAdmin)) => LoginPayload(token.value, isAdmin)
+              case Left(VoterNotFound)     => LoginErrorPayload("Eleitor não encontrado.")
+              case Left(InvalidPassword)   => LoginErrorPayload("Credenciais inválidas.")
             }
           )
         }
@@ -65,6 +75,11 @@ object MutationType {
         fieldType = CreateElectionPayloadType,
         arguments = TitleArg :: StartDateArg :: EndDateArg :: Nil,
         resolve   = ctx => {
+          if (ctx.ctx.authenticatedVoter.isEmpty)
+            Future.successful(ElectionErrorPayload("Autenticação necessária."))
+          else if (!ctx.ctx.authenticatedVoter.exists(_.isAdmin))
+            Future.successful(ElectionErrorPayload("Acesso restrito a administradores."))
+          else {
           val title    = ctx.arg(TitleArg)
           val startStr = ctx.arg(StartDateArg)
           val endStr   = ctx.arg(EndDateArg)
@@ -83,6 +98,41 @@ object MutationType {
               }
             }.handleError(_ => ElectionErrorPayload("Formato de data inválido. Use ISO 8601 (ex: 2025-06-01T00:00:00Z)."))
           )
+          }
+        }
+      ),
+
+      Field(
+        name      = "addCandidate",
+        fieldType = AddCandidatePayloadType,
+        arguments = ElectionIdArg :: NameArg :: PartyArg :: PhotoUrlArg :: NumberArg :: Nil,
+        resolve   = ctx => {
+          if (ctx.ctx.authenticatedVoter.isEmpty)
+            Future.successful(CandidateErrorPayload("Autenticação necessária."))
+          else if (!ctx.ctx.authenticatedVoter.exists(_.isAdmin))
+            Future.successful(CandidateErrorPayload("Acesso restrito a administradores."))
+          else {
+
+          val electionIdStr = ctx.arg(ElectionIdArg)
+          val name          = ctx.arg(NameArg)
+          val party         = ctx.arg(PartyArg)
+          val photoUrl      = ctx.arg(PhotoUrlArg)
+          val number        = ctx.arg(NumberArg)
+
+          ctx.ctx.dispatcher.unsafeToFuture(
+            IO.fromTry(Try(UUID.fromString(electionIdStr)))
+              .flatMap { electionId =>
+                ctx.ctx.addCandidateUseCase.execute(electionId, name, party, photoUrl, number).map {
+                  case Right(c)                    =>
+                    CandidatePayload(c.id.value.toString, c.electionId.value.toString, c.name.value, c.party, c.photoUrl, c.number)
+                  case Left(ElectionNotFound)      => CandidateErrorPayload("Eleição não encontrada.")
+                  case Left(ElectionAlreadyStarted) => CandidateErrorPayload("A eleição já teve início. Não é possível adicionar candidatos.")
+                  case Left(CandidateNameTooShort) => CandidateErrorPayload("O nome do candidato é demasiado curto (mínimo 2 caracteres).")
+                }
+              }
+              .handleError(_ => CandidateErrorPayload("ID de eleição inválido."))
+          )
+          }
         }
       )
     )
