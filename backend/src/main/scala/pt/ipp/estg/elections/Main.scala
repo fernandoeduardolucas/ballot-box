@@ -1,80 +1,143 @@
 package pt.ipp.estg.election
 
 import cats.effect._
+import cats.effect.std.Dispatcher
 import com.comcast.ip4s._
 import doobie.util.transactor.Transactor
+import java.util.Properties
 import io.circe.Json
+import org.flywaydb.core.Flyway
 import org.http4s._
 import org.http4s.circe._
 import org.http4s.dsl.io._
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.implicits._
 import org.http4s.server.Router
-import pt.ipp.estg.election.config.AppConfig
+import org.http4s.server.middleware.CORS
+import org.typelevel.ci.CIString
+import org.typelevel.log4cats.LoggerFactory
+import org.typelevel.log4cats.slf4j.{Slf4jFactory, Slf4jLogger}
+import pt.ipp.estg.election.aop.{AuditedLoginUseCase, AuditedRegisterVoterUseCase, LoggedRegisterVoterUseCase}
 import pt.ipp.estg.election.api.graphql.{ElectionContext, MutationType}
-import pt.ipp.estg.election.identity.application.RegisterVoterUseCase
-import pt.ipp.estg.election.identity.infrastructure.{BcryptPasswordHasher, DoobieVoterRepository}
+import pt.ipp.estg.election.config.AppConfig
+import pt.ipp.estg.election.election.application.CreateElectionUseCase
+import pt.ipp.estg.election.election.infrastructure.DoobieElectionRepository
+import pt.ipp.estg.election.identity.application.{LoginVoterUseCase, RegisterVoterUseCase}
+import pt.ipp.estg.election.identity.infrastructure._
 import sangria.execution.Executor
 import sangria.marshalling.circe._
 import sangria.parser.QueryParser
 import sangria.schema._
+
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 object Main extends IOApp.Simple {
 
-  val config: AppConfig = AppConfig.load()
+  private def runMigrations(config: AppConfig): IO[Unit] =
+    IO.delay {
+      Flyway
+        .configure()
+        .dataSource(config.db.url, config.db.user, config.db.password)
+        .load()
+        .migrate()
+    }.void
 
-  val schema = Schema(
-    query = ObjectType("Query", fields[ElectionContext, Unit]()),
-    mutation = Some(MutationType.Mutation)
-  )
-
-  val transactor: Transactor[IO] = Transactor.fromDriverManager[IO](
-    "org.postgresql.Driver",
-    config.db.url,
-    config.db.user,
-    config.db.password
-  )
-
-  val voterRepo = new DoobieVoterRepository[IO](transactor)
-  val hasher = new BcryptPasswordHasher[IO]
-  val registerUseCase = new RegisterVoterUseCase[IO](voterRepo, hasher)
-  val graphqlContext = ElectionContext(registerUseCase)
-
-  def graphqlRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
-    case req @ POST -> Root / config.app.graphql.path.stripPrefix("/") =>
-      req.as[Json].flatMap { body =>
-        val query = body.hcursor.get[String]("query").getOrElse("")
-        
-        QueryParser.parse(query) match {
-          case Success(ast) =>
-            IO.fromFuture(IO(
-              Executor.execute(
-                schema = schema,
-                queryAst = ast,
-                userContext = graphqlContext
-              )
-            )).flatMap(res => Ok(res))
-              .handleErrorWith(e => BadRequest(Json.obj("error" -> Json.fromString(e.getMessage))))
-
-          case Failure(error) =>
-            BadRequest(Json.obj("error" -> Json.fromString(error.getMessage)))
-        }
-      }
-  }
+  private def extractIp(req: Request[IO]): String =
+    req.headers
+      .get(CIString("X-Forwarded-For"))
+      .map(_.head.value.split(",").head.trim)
+      .orElse(req.headers.get(CIString("X-Real-Ip")).map(_.head.value))
+      .getOrElse("unknown")
 
   def run: IO[Unit] = {
-    val httpApp = Router("/" -> graphqlRoutes).orNotFound
+    val config = AppConfig.load()
 
-    val host = Host.fromString(config.app.http.host).getOrElse(host"0.0.0.0")
-    val port = Port.fromInt(config.app.http.port).getOrElse(port"8080")
+    given LoggerFactory[IO] = Slf4jFactory.create[IO]
+    given ExecutionContext   = ExecutionContext.global
 
-    EmberServerBuilder
-      .default[IO]
-      .withHost(host)
-      .withPort(port)
-      .withHttpApp(httpApp)
-      .build
-      .use(_ => IO.println(s"Servidor a correr em $host:$port${config.app.graphql.path}...") *> IO.never)
+    val dbProps = {
+      val p = new Properties()
+      p.setProperty("user", config.db.user)
+      p.setProperty("password", config.db.password)
+      p
+    }
+    val transactor = Transactor.fromDriverManager[IO](
+      "org.postgresql.Driver",
+      config.db.url,
+      dbProps,
+      None
+    )
+
+    val voterRepo      = new DoobieVoterRepository[IO](transactor)
+    val auditLogRepo   = new DoobieAuditLogRepository[IO](transactor)
+    val hasher         = new BcryptPasswordHasher[IO]
+    val verifier       = new BcryptPasswordVerifier[IO]
+    val tokenGenerator = new JwtTokenGenerator[IO](
+      config.security.jwt.secret,
+      config.security.jwt.expirationSeconds
+    )
+
+    val baseRegisterUseCase = new RegisterVoterUseCase[IO](voterRepo, hasher)
+    val auditedRegister     = new AuditedRegisterVoterUseCase[IO](
+      baseRegisterUseCase,
+      Slf4jLogger.getLoggerFromName[IO]("audit.identity.register")
+    )
+    val loggedRegister = new LoggedRegisterVoterUseCase[IO](auditedRegister)
+
+    val baseLoginUseCase = new LoginVoterUseCase[IO](voterRepo, verifier, tokenGenerator)
+    val auditedLogin     = new AuditedLoginUseCase[IO](baseLoginUseCase, auditLogRepo)
+
+    val electionRepo  = new DoobieElectionRepository[IO](transactor)
+    val createElection = new CreateElectionUseCase[IO](electionRepo)
+
+    val schema = Schema(
+      query    = ObjectType("Query", fields[ElectionContext, Unit](
+        Field("health", sangria.schema.StringType, resolve = _ => "ok")
+      )),
+      mutation = Some(MutationType.Mutation)
+    )
+
+    val host        = Host.fromString(config.app.http.host).getOrElse(host"0.0.0.0")
+    val port        = Port.fromInt(config.app.http.port).getOrElse(port"8080")
+    val graphqlPath = config.app.graphql.path.stripPrefix("/")
+
+    runMigrations(config) *> (for {
+      dispatcher <- Dispatcher.parallel[IO]
+      _ <- {
+        def graphqlRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
+          case req @ POST -> Root / `graphqlPath` =>
+            val ip      = extractIp(req)
+            val context = ElectionContext(loggedRegister, auditedLogin, createElection, dispatcher, ip)
+
+            req.as[Json].flatMap { body =>
+              val query     = body.hcursor.get[String]("query").getOrElse("")
+              val variables = body.hcursor.get[Json]("variables").getOrElse(Json.obj())
+              QueryParser.parse(query) match {
+                case Success(ast) =>
+                  IO.fromFuture(IO(
+                    Executor.execute(schema = schema, queryAst = ast, userContext = context, variables = variables)
+                  )).flatMap(res => Ok(res))
+                    .handleErrorWith(e => BadRequest(Json.obj("error" -> Json.fromString(e.getMessage))))
+                case Failure(error) =>
+                  BadRequest(Json.obj("error" -> Json.fromString(error.getMessage)))
+              }
+            }
+        }
+
+        EmberServerBuilder
+          .default[IO]
+          .withHost(host)
+          .withPort(port)
+          .withHttpApp(
+            CORS.policy
+              .withAllowOriginAll
+              .withAllowMethodsAll
+              .withAllowHeadersAll
+              .httpApp(Router("/" -> graphqlRoutes).orNotFound)
+          )
+          .build
+      }
+    } yield ()).use(_ => IO.println(s"Servidor a correr em $host:$port/$graphqlPath...") *> IO.never)
   }
 }

@@ -7,7 +7,7 @@ import pt.ipp.estg.election.identity.domain._
 class RegisterVoterUseCase[F[_]: Monad](
   repository: VoterRepository[F],
   hasher: PasswordHasher[F]
-) {
+) extends RegisterVoterAlg[F] {
 
   def execute(civilIdRaw: String, rawPassword: String): F[Either[RegistrationError, Voter]] = {
     
