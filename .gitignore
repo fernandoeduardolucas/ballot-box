@@ -7,3 +7,4 @@ build/
 .pub-cache/
 start-dev.ps1
 .claude/settings.local.json
+.planning/
