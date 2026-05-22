@@ -178,3 +178,9 @@ class ElectionService {
         .toList();
   }
 }
+
+final class VoteScreenArgs {
+  const VoteScreenArgs({required this.election, required this.candidates});
+  final ElectionItem election;
+  final List<CandidateItem> candidates;
+}
