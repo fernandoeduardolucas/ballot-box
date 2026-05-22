@@ -4,6 +4,7 @@ import 'package:sistema_eleitoral_frontend/core/auth/auth_store.dart';
 import 'package:sistema_eleitoral_frontend/core/services/graphql_service.dart';
 import 'package:sistema_eleitoral_frontend/core/theme/app_colors.dart';
 import 'package:sistema_eleitoral_frontend/features/election/data/election_service.dart';
+import 'package:sistema_eleitoral_frontend/features/election/data/vote_service.dart';
 import 'package:sistema_eleitoral_frontend/features/election/presentation/screens/active_elections_screen.dart';
 import 'package:sistema_eleitoral_frontend/features/election/presentation/screens/add_candidate_screen.dart';
 import 'package:sistema_eleitoral_frontend/features/election/presentation/screens/create_election_screen.dart';
@@ -134,7 +135,10 @@ class ElectionApp extends StatelessWidget {
         '/elections/create': (_) => const CreateElectionScreen(),
         '/elections/active': (_) => const ActiveElectionsScreen(),
         '/candidates/add':   (_) => const AddCandidateScreen(),
-        '/elections/vote':   (_) => const VoteScreen(),
+        '/elections/vote':   (ctx) {
+          final args = ModalRoute.of(ctx)!.settings.arguments as VoteScreenArgs;
+          return VoteScreen(args: args);
+        },
         '/elections/detail': (ctx) {
           final e = ModalRoute.of(ctx)!.settings.arguments as ElectionItem;
           return ElectionDetailScreen(election: e);
@@ -177,7 +181,7 @@ class _HomePageState extends State<HomePage> {
       0 => const _PainelSection(),
       1 => const _EleicoesAdminSection(),
       2 => const _CandidatosSection(),
-      3 => const _PlaceholderSection(title: 'Resultados', message: 'Os resultados estarão disponíveis após o encerramento das eleições.'),
+      3 => const _ResultadosSection(),
       4 => const _PlaceholderSection(title: 'Auditoria', message: 'O registo de auditoria está em desenvolvimento.'),
       _ => const _PainelSection(),
     };
@@ -662,7 +666,7 @@ class _ElectionAdminRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
     final ended = now.isAfter(election.endDate);
     final active = now.isAfter(election.startDate) && !ended;
 
@@ -897,6 +901,244 @@ class _PlaceholderSection extends StatelessWidget {
             style: GoogleFonts.atkinsonHyperlegible(fontSize: 14, color: AppColors.inkMuted, height: 1.5)),
         ]),
       ),
+    );
+  }
+}
+
+// ── Resultados section ────────────────────────────────────────────────────────
+
+class _ResultadosSection extends StatefulWidget {
+  const _ResultadosSection();
+
+  @override
+  State<_ResultadosSection> createState() => _ResultadosSectionState();
+}
+
+class _ResultadosSectionState extends State<_ResultadosSection> {
+  final _electionService = ElectionService(
+      GraphQLService(baseUrl: 'http://localhost:8080/graphql'));
+  final _voteService = VoteService(
+      GraphQLService(baseUrl: 'http://localhost:8080/graphql'));
+  late Future<List<ElectionItem>> _electionsFuture;
+  String? _expandedId;
+  Future<List<VoteCountItem>>? _resultsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _electionsFuture = _electionService.listAllElections();
+  }
+
+  void _toggleElection(String electionId) {
+    setState(() {
+      if (_expandedId == electionId) {
+        _expandedId = null;
+        _resultsFuture = null;
+      } else {
+        _expandedId = electionId;
+        _resultsFuture = _voteService.getVoteResults(electionId);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!AuthStore.instance.isAdmin) {
+      return const Center(
+        child: Text('Acesso restrito a administradores.'),
+      );
+    }
+    return SingleChildScrollView(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Section header — same style as _EleicoesAdminSection
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                decoration: const BoxDecoration(
+                  color: AppColors.surfaceContainerLow,
+                  border: Border.symmetric(
+                      horizontal: BorderSide(color: AppColors.hairline)),
+                ),
+                child: Row(children: [
+                  Text('II.', style: GoogleFonts.instrumentSerif(
+                      fontSize: 18, color: AppColors.oxblood,
+                      fontStyle: FontStyle.italic)),
+                  const SizedBox(width: 10),
+                  Text('RESULTADOS POR ELEIÇÃO',
+                      style: GoogleFonts.ibmPlexSans(
+                          fontSize: 10, fontWeight: FontWeight.w700,
+                          letterSpacing: 1.8, color: AppColors.ink)),
+                ]),
+              ),
+              // Elections list with expandable results
+              FutureBuilder<List<ElectionItem>>(
+                future: _electionsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Padding(
+                      padding: EdgeInsets.all(60),
+                      child: Center(child: CircularProgressIndicator(
+                          color: AppColors.primary, strokeWidth: 1.5)),
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    return Padding(
+                      padding: const EdgeInsets.all(40),
+                      child: Center(child: Text(snapshot.error.toString(),
+                          style: GoogleFonts.atkinsonHyperlegible(
+                              fontSize: 13, color: AppColors.inkMuted))),
+                    );
+                  }
+                  final elections = snapshot.data ?? [];
+                  if (elections.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.all(60),
+                      child: Center(child: Text('Sem eleições registadas.',
+                          style: GoogleFonts.instrumentSerif(
+                              fontSize: 22, color: AppColors.ink))),
+                    );
+                  }
+                  return Column(
+                    children: elections.map((e) => _ResultadosElectionRow(
+                      election: e,
+                      isExpanded: _expandedId == e.id,
+                      resultsFuture: _expandedId == e.id
+                          ? _resultsFuture : null,
+                      onToggle: () => _toggleElection(e.id),
+                    )).toList(),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ResultadosElectionRow extends StatelessWidget {
+  const _ResultadosElectionRow({
+    required this.election,
+    required this.isExpanded,
+    required this.resultsFuture,
+    required this.onToggle,
+  });
+  final ElectionItem election;
+  final bool isExpanded;
+  final Future<List<VoteCountItem>>? resultsFuture;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: [
+      MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onToggle,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 16, 20, 16),
+            decoration: BoxDecoration(
+              color: isExpanded
+                  ? AppColors.surfaceContainerLow : AppColors.surface,
+              border: const Border(
+                  bottom: BorderSide(color: AppColors.hairline)),
+            ),
+            child: Row(children: [
+              Expanded(
+                child: Text(election.title,
+                    style: GoogleFonts.instrumentSerif(
+                        fontSize: 20, color: AppColors.ink,
+                        letterSpacing: -0.2)),
+              ),
+              Icon(
+                isExpanded
+                    ? Icons.keyboard_arrow_up_rounded
+                    : Icons.keyboard_arrow_down_rounded,
+                color: AppColors.inkMuted, size: 20,
+              ),
+            ]),
+          ),
+        ),
+      ),
+      if (isExpanded)
+        _ResultadosDetail(resultsFuture: resultsFuture),
+    ]);
+  }
+}
+
+class _ResultadosDetail extends StatelessWidget {
+  const _ResultadosDetail({required this.resultsFuture});
+  final Future<List<VoteCountItem>>? resultsFuture;
+
+  @override
+  Widget build(BuildContext context) {
+    if (resultsFuture == null) {
+      return const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(child: CircularProgressIndicator(strokeWidth: 1.5)),
+      );
+    }
+    return FutureBuilder<List<VoteCountItem>>(
+      future: resultsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: CircularProgressIndicator(
+                color: AppColors.primary, strokeWidth: 1.5)),
+          );
+        }
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(40, 16, 40, 16),
+            child: Text('Erro: ${snapshot.error}',
+                style: GoogleFonts.atkinsonHyperlegible(
+                    fontSize: 13, color: AppColors.error)),
+          );
+        }
+        final results = snapshot.data ?? [];
+        if (results.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(40, 16, 40, 16),
+            child: Text('Sem votos registados.',
+                style: GoogleFonts.atkinsonHyperlegible(
+                    fontSize: 13, color: AppColors.inkMuted)),
+          );
+        }
+        return Column(
+          children: results.map((r) => Container(
+            padding: const EdgeInsets.fromLTRB(40, 12, 24, 12),
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              border: Border(bottom: BorderSide(color: AppColors.hairline)),
+            ),
+            child: Row(children: [
+              Expanded(child: Text(r.candidateName,
+                  style: GoogleFonts.ibmPlexSans(
+                      fontSize: 14, fontWeight: FontWeight.w600,
+                      color: AppColors.ink))),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(2),
+                  border: Border.all(color: AppColors.hairlineStrong),
+                ),
+                child: Text('${r.count} votos',
+                    style: GoogleFonts.ibmPlexMono(
+                        fontSize: 12, fontWeight: FontWeight.w700,
+                        color: AppColors.inkSubtle)),
+              ),
+            ]),
+          )).toList(),
+        );
+      },
     );
   }
 }
