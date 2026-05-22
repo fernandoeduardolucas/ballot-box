@@ -5,6 +5,7 @@ import pt.ipp.estg.election.api.graphql.schemas.ElectionSchema._
 import pt.ipp.estg.election.api.graphql.schemas.IdentitySchema._
 import pt.ipp.estg.election.election.domain.{CandidateNameTooShort, ElectionAlreadyStarted, ElectionNotFound, EndDateBeforeStartDate, TitleTooShort}
 import pt.ipp.estg.election.identity.domain._
+import pt.ipp.estg.election.voting.domain.{AlreadyVoted, CandidateNotInElection, ElectionNotActive}
 import sangria.schema._
 
 import java.time.Instant
@@ -14,17 +15,19 @@ import scala.util.Try
 
 object MutationType {
 
-  val CivilIdArg    = Argument("civilId",    StringType)
-  val PasswordArg   = Argument("password",   StringType)
-  val Nut3RegionArg = Argument("nut3Region", StringType)
-  val TitleArg      = Argument("title",      StringType)
-  val StartDateArg  = Argument("startDate",  StringType)
-  val EndDateArg    = Argument("endDate",    StringType)
-  val ElectionIdArg = Argument("electionId", StringType)
-  val NameArg       = Argument("name",       StringType)
-  val PartyArg      = Argument("party",      OptionInputType(StringType))
-  val PhotoUrlArg   = Argument("photoUrl",   OptionInputType(StringType))
-  val NumberArg     = Argument("number",     IntType)
+  val CivilIdArg     = Argument("civilId",     StringType)
+  val PasswordArg    = Argument("password",    StringType)
+  val Nut3RegionArg  = Argument("nut3Region",  StringType)
+  val TitleArg       = Argument("title",       StringType)
+  val StartDateArg   = Argument("startDate",   StringType)
+  val EndDateArg     = Argument("endDate",     StringType)
+  val ElectionIdArg  = Argument("electionId",  StringType)
+  val NameArg        = Argument("name",        StringType)
+  val PartyArg       = Argument("party",       OptionInputType(StringType))
+  val PhotoUrlArg    = Argument("photoUrl",    OptionInputType(StringType))
+  val NumberArg      = Argument("number",      IntType)
+  val VoterIdArg     = Argument("voterId",     StringType)
+  val CandidateIdArg = Argument("candidateId", StringType)
 
   val Mutation: ObjectType[ElectionContext, Unit] = ObjectType(
     "Mutation",
@@ -132,6 +135,41 @@ object MutationType {
               }
               .handleError(_ => CandidateErrorPayload("ID de eleição inválido."))
           )
+          }
+        }
+      ),
+
+      Field(
+        name      = "castVote",
+        fieldType = CastVotePayloadType,
+        arguments = VoterIdArg :: ElectionIdArg :: CandidateIdArg :: Nil,
+        resolve   = ctx => {
+          if (ctx.ctx.authenticatedVoter.isEmpty)
+            Future.successful(CastVoteErrorPayload("Autenticação necessária."))
+          else {
+            val voterIdStr     = ctx.arg(VoterIdArg)
+            val electionIdStr  = ctx.arg(ElectionIdArg)
+            val candidateIdStr = ctx.arg(CandidateIdArg)
+            val ip             = ctx.ctx.requestIp
+
+            ctx.ctx.dispatcher.unsafeToFuture(
+              IO.fromTry(
+                for {
+                  vId <- Try(UUID.fromString(voterIdStr))
+                  eId <- Try(UUID.fromString(electionIdStr))
+                  cId <- Try(UUID.fromString(candidateIdStr))
+                } yield (vId, eId, cId)
+              ).flatMap { case (vId, eId, cId) =>
+                ctx.ctx.castVoteUseCase.execute(vId, eId, cId, ip).map {
+                  case Right(vote) =>
+                    CastVotePayload(vote.id.value.toString, vote.electionId.value.toString, vote.votedAt.toString)
+                  case Left(ElectionNotActive)      => CastVoteErrorPayload("A eleição não está activa.")
+                  case Left(CandidateNotInElection) => CastVoteErrorPayload("O candidato não pertence a esta eleição.")
+                  case Left(AlreadyVoted)           => CastVoteErrorPayload("Já votou nesta eleição.")
+                }
+              }
+              .handleError(_ => CastVoteErrorPayload("Identificadores inválidos."))
+            )
           }
         }
       )
