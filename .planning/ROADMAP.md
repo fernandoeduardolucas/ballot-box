@@ -59,8 +59,11 @@ Plans:
   3. When the server returns `AlreadyVoted`, VoteScreen displays a specific "already voted" message and the VOTAR button remains disabled — the screen does not crash or show a generic error
   4. The admin Results tab displays per-candidate vote counts sourced from the `electionResults` query instead of the static placeholder
   5. Election active-window checks in Flutter use UTC throughout — the same election that the backend marks as active is also displayed as active in the UI regardless of the device's local timezone
-**Plans**: TBD
-**UI hint**: yes
+**Plans**: 3 plans
+Plans:
+- [ ] 03-01-PLAN.md — VoteScreenArgs in election_service.dart + VoteService + CastVoteResult sealed class + VoteCountItem (data layer contracts)
+- [ ] 03-02-PLAN.md — VoteScreen rewrite: VoteScreenArgs args, _submitting, _alreadyVoted, VoteService.castVote call, _AlreadyVotedBanner
+- [ ] 03-03-PLAN.md — main.dart route factory + _ResultadosSection + UTC fixes across main.dart, election_detail_screen.dart, active_elections_screen.dart
 
 ---
 
@@ -70,7 +73,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Schema & Domain Core | 2/2 | Complete ✓ | 2026-05-22 |
 | 2. Backend Vertical Slice | 4/4 | Complete ✓ | 2026-05-22 |
-| 3. Flutter Wiring | 0/0 | Not started | - |
+| 3. Flutter Wiring | 0/3 | Planned ✓ | - |
 
 ---
 
@@ -99,4 +102,4 @@ Plans:
 ---
 
 *Roadmap created: 2026-05-21*
-*Last updated: 2026-05-22 — Phase 2 plans created (02-01, 02-02, 02-03, 02-04)*
+*Last updated: 2026-05-22 — Phase 3 plans created (03-01, 03-02, 03-03)*

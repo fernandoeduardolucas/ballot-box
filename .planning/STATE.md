@@ -3,7 +3,7 @@
 **Project:** VotoSeguro — ballot-box
 **Milestone:** Vote-Casting Feature
 **Initialized:** 2026-05-21
-**Last updated:** 2026-05-22
+**Last updated:** 2026-05-22 (Phase 3 planned)
 
 ---
 
@@ -11,7 +11,7 @@
 
 **Core Value:** Um eleitor autenticado consegue votar exactamente uma vez numa eleição activa — sem duplicados, sem race conditions — e o voto é persistido na base de dados.
 
-**Current Focus:** Phase 2 complete — ready for Phase 3 planning
+**Current Focus:** Phase 3 planned — ready for execution
 
 ---
 
@@ -19,17 +19,17 @@
 
 | Field | Value |
 |-------|-------|
-| Phase | 2 — Backend Vertical Slice |
-| Plan | 4/4 complete (02-01 ✓, 02-02 ✓, 02-03 ✓, 02-04 ✓) |
-| Status | Phase 2 executed — pending verification |
+| Phase | 3 — Flutter Wiring |
+| Plan | 0/3 complete (03-01 pending, 03-02 pending, 03-03 pending) |
+| Status | Phase 3 planned — ready to execute |
 | Branch | U.S-2 |
 
 **Progress bar:**
 
 ```
 Phase 1  [████████████████████]  100% ✓
-Phase 2  [████████████████████]  100% (pending verification)
-Phase 3  [                    ]  0%
+Phase 2  [████████████████████]  100% ✓
+Phase 3  [                    ]  0%   (planned, 3 plans)
 ─────────────────────────────────────
 Overall  [█████████████       ]  67%  (2/3 phases complete)
 ```
@@ -43,7 +43,8 @@ Overall  [█████████████       ]  67%  (2/3 phases comp
 | Plans complete | 6 |
 | Plans in progress | 0 |
 | Requirements delivered | 11/14 (VOTE-01..05, RSLT-01..03, AUDT-01) |
-| Phases complete | 1/3 (Phase 2 pending verification) |
+| Phases complete | 2/3 |
+| Plans planned | 3 (Phase 3: 03-01, 03-02, 03-03) |
 
 ---
 
