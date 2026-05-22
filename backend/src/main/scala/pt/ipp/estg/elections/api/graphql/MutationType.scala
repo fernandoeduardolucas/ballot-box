@@ -26,7 +26,6 @@ object MutationType {
   val PartyArg       = Argument("party",       OptionInputType(StringType))
   val PhotoUrlArg    = Argument("photoUrl",    OptionInputType(StringType))
   val NumberArg      = Argument("number",      IntType)
-  val VoterIdArg     = Argument("voterId",     StringType)
   val CandidateIdArg = Argument("candidateId", StringType)
 
   val Mutation: ObjectType[ElectionContext, Unit] = ObjectType(
@@ -142,12 +141,12 @@ object MutationType {
       Field(
         name      = "castVote",
         fieldType = CastVotePayloadType,
-        arguments = VoterIdArg :: ElectionIdArg :: CandidateIdArg :: Nil,
+        arguments = ElectionIdArg :: CandidateIdArg :: Nil,
         resolve   = ctx => {
           if (ctx.ctx.authenticatedVoter.isEmpty)
             Future.successful(CastVoteErrorPayload("Autenticação necessária."))
           else {
-            val voterIdStr     = ctx.arg(VoterIdArg)
+            val vId            = ctx.ctx.authenticatedVoter.get.id.value
             val electionIdStr  = ctx.arg(ElectionIdArg)
             val candidateIdStr = ctx.arg(CandidateIdArg)
             val ip             = ctx.ctx.requestIp
@@ -155,11 +154,10 @@ object MutationType {
             ctx.ctx.dispatcher.unsafeToFuture(
               IO.fromTry(
                 for {
-                  vId <- Try(UUID.fromString(voterIdStr))
                   eId <- Try(UUID.fromString(electionIdStr))
                   cId <- Try(UUID.fromString(candidateIdStr))
-                } yield (vId, eId, cId)
-              ).flatMap { case (vId, eId, cId) =>
+                } yield (eId, cId)
+              ).flatMap { case (eId, cId) =>
                 ctx.ctx.castVoteUseCase.execute(vId, eId, cId, ip).map {
                   case Right(vote) =>
                     CastVotePayload(vote.id.value.toString, vote.electionId.value.toString, vote.votedAt.toString)
