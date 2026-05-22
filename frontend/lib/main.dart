@@ -130,6 +130,7 @@ class ElectionApp extends StatelessWidget {
       routes: {
         '/home':             (_) => const HomePage(),
         '/auth/login':       (_) => const LoginScreen(),
+        '/auth/register':    (_) => const RegisterScreen(),
         '/elections/create': (_) => const CreateElectionScreen(),
         '/elections/active': (_) => const ActiveElectionsScreen(),
         '/candidates/add':   (_) => const AddCandidateScreen(),
