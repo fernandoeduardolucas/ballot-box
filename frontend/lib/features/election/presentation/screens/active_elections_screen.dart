@@ -374,7 +374,7 @@ class _ElectionItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
     final remaining = election.endDate.difference(now);
     final urgent = remaining.inHours < 24;
 
@@ -463,7 +463,7 @@ class _ElectionItem extends StatelessWidget {
           Expanded(
             child: FilledButton.icon(
               onPressed: () => AuthStore.instance.isAuthenticated
-                  ? Navigator.pushNamed(context, '/elections/vote', arguments: election)
+                  ? Navigator.pushNamed(context, '/elections/detail', arguments: election)
                   : Navigator.pushNamed(context, '/auth/login'),
               icon: const Icon(Icons.fingerprint_rounded, size: 16),
               label: Text(
@@ -480,7 +480,7 @@ class _ElectionItem extends StatelessWidget {
 
   double _progressValue(ElectionItem e) {
     final total = e.endDate.difference(e.startDate).inMinutes;
-    final elapsed = DateTime.now().difference(e.startDate).inMinutes;
+    final elapsed = DateTime.now().toUtc().difference(e.startDate).inMinutes;
     if (total <= 0) return 0;
     return (elapsed / total).clamp(0.0, 1.0);
   }

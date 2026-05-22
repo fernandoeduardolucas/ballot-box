@@ -70,4 +70,46 @@ object ElectionSchema {
     "AddCandidatePayload",
     types = List(CandidatePayloadType, CandidateErrorPayloadType)
   )
+
+  // ─── Vote (cast) ─────────────────────────────────────────────────────────────
+
+  case class CastVotePayload(voteId: String, electionId: String, votedAt: String)
+  case class CastVoteErrorPayload(message: String)
+
+  val CastVoteSuccessPayloadType: ObjectType[Unit, CastVotePayload] = ObjectType(
+    "CastVoteSuccess",
+    "Voto submetido com sucesso",
+    fields[Unit, CastVotePayload](
+      Field("voteId",     StringType, resolve = _.value.voteId),
+      Field("electionId", StringType, resolve = _.value.electionId),
+      Field("votedAt",    StringType, resolve = _.value.votedAt)
+    )
+  )
+
+  val CastVoteErrorPayloadType: ObjectType[Unit, CastVoteErrorPayload] = ObjectType(
+    "CastVoteError",
+    "Erro ao submeter voto",
+    fields[Unit, CastVoteErrorPayload](
+      Field("message", StringType, resolve = _.value.message)
+    )
+  )
+
+  val CastVotePayloadType: UnionType[Unit] = UnionType(
+    "CastVotePayload",
+    types = List(CastVoteSuccessPayloadType, CastVoteErrorPayloadType)
+  )
+
+  // ─── Vote Results ────────────────────────────────────────────────────────────
+
+  case class VoteCountPayload(candidateId: String, candidateName: String, count: Long)
+
+  val VoteCountPayloadType: ObjectType[Unit, VoteCountPayload] = ObjectType(
+    "VoteCountPayload",
+    "Contagem de votos por candidato",
+    fields[Unit, VoteCountPayload](
+      Field("candidateId",   StringType, resolve = _.value.candidateId),
+      Field("candidateName", StringType, resolve = _.value.candidateName),
+      Field("count",         LongType,   resolve = _.value.count)
+    )
+  )
 }
