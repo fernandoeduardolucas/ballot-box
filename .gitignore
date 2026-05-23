@@ -32,3 +32,6 @@ frontend/ios/Flutter/flutter_export_environment.sh
 # Miscellaneous
 start-dev.ps1
 .claude/settings.local.json
+.planning/
+graphify-out/
+.claude/

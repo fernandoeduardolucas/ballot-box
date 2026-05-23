@@ -17,11 +17,13 @@ import org.http4s.server.middleware.CORS
 import org.typelevel.ci.CIString
 import org.typelevel.log4cats.LoggerFactory
 import org.typelevel.log4cats.slf4j.{Slf4jFactory, Slf4jLogger}
-import pt.ipp.estg.election.aop.{AuditedLoginUseCase, AuditedRegisterVoterUseCase, LoggedRegisterVoterUseCase}
+import pt.ipp.estg.election.aop.{AuditedCastVoteUseCase, AuditedLoginUseCase, AuditedRegisterVoterUseCase, LoggedRegisterVoterUseCase}
 import pt.ipp.estg.election.api.graphql.{ElectionContext, MutationType, QueryType}
 import pt.ipp.estg.election.config.AppConfig
 import pt.ipp.estg.election.election.application.{AddCandidateUseCase, CreateElectionUseCase, ListActiveElectionsUseCase, ListAllElectionsUseCase, ListElectionCandidatesUseCase}
 import pt.ipp.estg.election.election.infrastructure.{DoobieCandidateRepository, DoobieElectionRepository}
+import pt.ipp.estg.election.voting.application.{CastVoteUseCase, GetVoteResultsUseCase}
+import pt.ipp.estg.election.voting.infrastructure.DoobieVoteRepository
 import pt.ipp.estg.election.identity.application.{LoginVoterUseCase, RegisterVoterUseCase}
 import pt.ipp.estg.election.identity.domain.AuthenticatedVoter
 import pt.ipp.estg.election.identity.infrastructure._
@@ -106,6 +108,11 @@ object Main extends IOApp.Simple {
     val listAllElections        = new ListAllElectionsUseCase[IO](electionRepo)
     val listElectionCandidates  = new ListElectionCandidatesUseCase[IO](candidateRepo)
 
+    val voteRepo       = new DoobieVoteRepository[IO](transactor)
+    val baseCastVote   = new CastVoteUseCase[IO](electionRepo, candidateRepo, voteRepo)
+    val castVote       = new AuditedCastVoteUseCase[IO](baseCastVote, auditLogRepo)
+    val getVoteResults = new GetVoteResultsUseCase[IO](voteRepo)
+
     val schema = Schema(
       query    = QueryType.Query,
       mutation = Some(MutationType.Mutation)
@@ -124,7 +131,7 @@ object Main extends IOApp.Simple {
             val rawToken = extractBearerToken(req)
             for {
               authedVoter <- rawToken.fold(IO.pure(Option.empty[AuthenticatedVoter]))(tokenVerifier.verify)
-              context      = ElectionContext(loggedRegister, auditedLogin, createElection, addCandidate, listActiveElections, listAllElections, listElectionCandidates, authedVoter, dispatcher, ip)
+              context      = ElectionContext(loggedRegister, auditedLogin, createElection, addCandidate, listActiveElections, listAllElections, listElectionCandidates, castVote, getVoteResults, authedVoter, dispatcher, ip)
               response    <- req.as[Json].flatMap { body =>
                 val query     = body.hcursor.get[String]("query").getOrElse("")
                 val variables = body.hcursor.get[Json]("variables").getOrElse(Json.obj())

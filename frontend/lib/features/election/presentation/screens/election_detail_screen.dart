@@ -65,7 +65,10 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
                             child: FilledButton.icon(
                               onPressed: AuthStore.instance.isAuthenticated
                                   ? () => Navigator.pushNamed(context, '/elections/vote',
-                                        arguments: widget.election)
+                                        arguments: VoteScreenArgs(
+                                          election: widget.election,
+                                          candidates: candidates,
+                                        ))
                                   : () => Navigator.pushNamed(context, '/auth/login'),
                               icon: const Icon(Icons.fingerprint_rounded, size: 16),
                               label: Text(
@@ -163,7 +166,7 @@ class _InfoSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
     final remaining = election.endDate.difference(now);
     final urgent = remaining.inHours < 24 && remaining.inSeconds > 0;
     final ended = now.isAfter(election.endDate);
@@ -219,7 +222,7 @@ class _InfoSection extends StatelessWidget {
 
   double _progressValue() {
     final total = election.endDate.difference(election.startDate).inMinutes;
-    final elapsed = DateTime.now().difference(election.startDate).inMinutes;
+    final elapsed = DateTime.now().toUtc().difference(election.startDate).inMinutes;
     if (total <= 0) return 0;
     return (elapsed / total).clamp(0.0, 1.0);
   }

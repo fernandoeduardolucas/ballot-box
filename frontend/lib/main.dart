@@ -4,6 +4,7 @@ import 'package:sistema_eleitoral_frontend/core/auth/auth_store.dart';
 import 'package:sistema_eleitoral_frontend/core/services/graphql_service.dart';
 import 'package:sistema_eleitoral_frontend/core/theme/app_colors.dart';
 import 'package:sistema_eleitoral_frontend/features/election/data/election_service.dart';
+import 'package:sistema_eleitoral_frontend/features/election/data/vote_service.dart';
 import 'package:sistema_eleitoral_frontend/features/election/presentation/screens/active_elections_screen.dart';
 import 'package:sistema_eleitoral_frontend/features/election/presentation/screens/add_candidate_screen.dart';
 import 'package:sistema_eleitoral_frontend/features/election/presentation/screens/create_election_screen.dart';
@@ -145,9 +146,13 @@ class ElectionApp extends StatelessWidget {
         '/auth/login':       (_) => const LoginScreen(),
         '/auth/register':    (_) => const RegisterScreen(),
         '/home':             (_) => const AdminHomeScreen(),
+        '/elections/create': (_) => const CreateElectionScreen(),
         '/elections/active': (_) => const ActiveElectionsScreen(),
         '/candidates/add':   (_) => const AddCandidateScreen(),
-        '/elections/vote':   (_) => const VoteScreen(),
+        '/elections/vote':   (ctx) {
+          final args = ModalRoute.of(ctx)!.settings.arguments as VoteScreenArgs;
+          return VoteScreen(args: args);
+        },
         '/elections/detail': (ctx) {
           final e = ModalRoute.of(ctx)!.settings.arguments as ElectionItem;
           return ElectionDetailScreen(election: e);
