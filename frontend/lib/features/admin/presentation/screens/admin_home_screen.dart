@@ -21,14 +21,16 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   Widget build(BuildContext context) {
     final desktop = Scaffold(
       backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          const _Dateline(),
-          const _Masthead(),
-          _NavStrip(activeIndex: _navIndex, onTap: (i) => setState(() => _navIndex = i)),
-          Expanded(child: _buildSection()),
-          _Footer(),
-        ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            const _Dateline(),
+            const _Masthead(),
+            _NavStrip(activeIndex: _navIndex, onTap: (i) => setState(() => _navIndex = i)),
+            Expanded(child: _buildSection()),
+            _Footer(),
+          ],
+        ),
       ),
     );
 
@@ -39,7 +41,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         backgroundColor: AppColors.surface,
         centerTitle: true,
       ),
-      body: _buildSection(),
+      body: SafeArea(
+        child: _buildSection(),
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _navIndex > 2 ? 3 : _navIndex,
         onTap: (i) => setState(() => _navIndex = i),
@@ -185,12 +189,6 @@ class _Masthead extends StatelessWidget {
             ],
           ),
           const Spacer(),
-          FilledButton(
-            onPressed: () => Navigator.pushNamed(context, '/elections/create'),
-            style: FilledButton.styleFrom(minimumSize: const Size(0, 40), padding: const EdgeInsets.symmetric(horizontal: 18)),
-            child: Text('+ Nova Eleição', style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.4)),
-          ),
-          const SizedBox(width: 10),
           OutlinedButton(
             onPressed: () {
               AuthStore.instance.clearToken();

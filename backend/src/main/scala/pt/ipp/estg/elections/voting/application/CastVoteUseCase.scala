@@ -12,10 +12,16 @@ import pt.ipp.estg.election.voting.domain.{ElectionNotActive, CandidateNotInElec
 import java.time.Instant
 import java.util.UUID
 
+import doobie.util.transactor.Transactor
+import doobie.implicits._
+import pt.ipp.estg.election.voting.infrastructure.{VoteCastEvent, VoteEventBus}
+
 class CastVoteUseCase[F[_]: Sync](
   electionRepo:  ElectionRepository[F],
   candidateRepo: CandidateRepository[F],
-  voteRepo:      VoteRepository[F]
+  voteRepo:      VoteRepository[F],
+  eventBus:      VoteEventBus[F],
+  xa:            Transactor[F]
 ) extends CastVoteAlg[F] {
 
   def execute(
@@ -40,7 +46,8 @@ class CastVoteUseCase[F[_]: Sync](
       _          <- EitherT.fromEither[F](CastVoteLogic.validate(election, candidate, now))
       id         <- EitherT.liftF(Sync[F].delay(VoteId(UUID.randomUUID())))
       vote        = Vote(id, VoterId(voterId), ElectionId(electionId), CandidateId(candidateId), now)
-      _          <- EitherT(voteRepo.save(vote))
+      _          <- EitherT(voteRepo.save(vote).transact(xa))
+      _          <- EitherT.liftF(eventBus.publish(VoteCastEvent(ElectionId(electionId), CandidateId(candidateId))))
     } yield vote
     pipeline.value
   }

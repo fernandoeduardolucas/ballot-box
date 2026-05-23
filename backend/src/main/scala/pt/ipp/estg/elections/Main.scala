@@ -31,6 +31,15 @@ import sangria.execution.Executor
 import sangria.marshalling.circe._
 import sangria.parser.QueryParser
 import sangria.schema._
+import pt.ipp.estg.election.voting.infrastructure.VoteEventBus
+import pt.ipp.estg.election.voting.application.VoteConsumer
+import fs2.Pipe
+import fs2.Stream
+import io.circe.syntax._
+import io.circe.generic.auto._
+import org.http4s.server.websocket.WebSocketBuilder2
+import org.http4s.websocket.WebSocketFrame
+import cats.syntax.all._
 
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
@@ -109,8 +118,6 @@ object Main extends IOApp.Simple {
     val listElectionCandidates  = new ListElectionCandidatesUseCase[IO](candidateRepo)
 
     val voteRepo       = new DoobieVoteRepository[IO](transactor)
-    val baseCastVote   = new CastVoteUseCase[IO](electionRepo, candidateRepo, voteRepo)
-    val castVote       = new AuditedCastVoteUseCase[IO](baseCastVote, auditLogRepo)
     val getVoteResults = new GetVoteResultsUseCase[IO](voteRepo)
 
     val schema = Schema(
@@ -123,8 +130,13 @@ object Main extends IOApp.Simple {
     val graphqlPath = config.app.graphql.path.stripPrefix("/")
 
     runMigrations(config) *> (for {
+      eventBus   <- Resource.eval(VoteEventBus.create[IO])
+      _          <- VoteConsumer.startConsumer(eventBus, voteRepo, transactor).background
       dispatcher <- Dispatcher.parallel[IO]
       _ <- {
+        val baseCastVote = new CastVoteUseCase[IO](electionRepo, candidateRepo, voteRepo, eventBus, transactor)
+        val castVote     = new AuditedCastVoteUseCase[IO](baseCastVote, auditLogRepo)
+
         def graphqlRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
           case req @ POST -> Root / `graphqlPath` =>
             val ip       = extractIp(req)
@@ -148,6 +160,14 @@ object Main extends IOApp.Simple {
             } yield response
         }
 
+        def webSocketRoute: HttpRoutes[IO] = HttpRoutes.of[IO] {
+          case GET -> Root / "audit" / "stream" =>
+            val toClient: Stream[IO, WebSocketFrame] =
+              eventBus.subscribe.map(event => WebSocketFrame.Text(event.asJson.noSpaces))
+            val fromClient: Pipe[IO, WebSocketFrame, Unit] = _.evalMap(_ => IO.unit)
+            WebSocketBuilder2[IO].build(toClient, fromClient)
+        }
+
         EmberServerBuilder
           .default[IO]
           .withHost(host)
@@ -157,7 +177,7 @@ object Main extends IOApp.Simple {
               .withAllowOriginAll
               .withAllowMethodsAll
               .withAllowHeadersAll
-              .httpApp(Router("/" -> graphqlRoutes).orNotFound)
+              .httpApp(Router("/" -> (graphqlRoutes <+> webSocketRoute)).orNotFound)
           )
           .build
       }
