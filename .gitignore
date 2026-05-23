@@ -1,9 +1,34 @@
+# IDEs and System files
 .idea/
-.bsp/
-target/
-.dart_tool/
-build/
-.packages
-.pub-cache/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Backend (Scala/SBT)
+backend/target/
+backend/project/target/
+backend/project/project/
+backend/.bsp/
+backend/.bloop/
+backend/.metals/
+backend/active.json
+
+# Frontend (Flutter)
+frontend/.dart_tool/
+frontend/build/
+frontend/.packages
+frontend/.pub-cache/
+frontend/.pub/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/ios/Pods/
+frontend/ios/.symlinks/
+frontend/ios/Flutter/Generated.xcconfig
+frontend/ios/Flutter/flutter_export_environment.sh
+
+# Miscellaneous
 start-dev.ps1
 .claude/settings.local.json

@@ -4,6 +4,7 @@ import 'package:sistema_eleitoral_frontend/core/auth/auth_store.dart';
 import 'package:sistema_eleitoral_frontend/core/services/graphql_service.dart';
 import 'package:sistema_eleitoral_frontend/core/theme/app_colors.dart';
 import 'package:sistema_eleitoral_frontend/features/election/data/election_service.dart';
+import 'package:sistema_eleitoral_frontend/core/presentation/widgets/responsive_layout.dart';
 
 class ActiveElectionsScreen extends StatefulWidget {
   const ActiveElectionsScreen({super.key});
@@ -38,37 +39,40 @@ class _ActiveElectionsScreenState extends State<ActiveElectionsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          _ElectionsHeader(
-            onRefresh: _refresh,
-            isAuthenticated: AuthStore.instance.isAuthenticated,
-            isAdmin: AuthStore.instance.isAdmin,
-            onLogout: _logout,
-          ),
-          const _NavDivider(),
-          Expanded(
-            child: FutureBuilder<List<ElectionItem>>(
-              future: _future,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 1.5),
-                  );
-                }
-                if (snapshot.hasError) {
-                  return _ErrorState(
-                    message: snapshot.error.toString(),
-                    onRetry: _refresh,
-                  );
-                }
-                final elections = snapshot.data!;
-                if (elections.isEmpty) return const _EmptyState();
-                return _ElectionsList(elections: elections);
-              },
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            _ElectionsHeader(
+              onRefresh: _refresh,
+              isAuthenticated: AuthStore.instance.isAuthenticated,
+              isAdmin: AuthStore.instance.isAdmin,
+              onLogout: _logout,
             ),
-          ),
-        ],
+            const _NavDivider(),
+            Expanded(
+              child: FutureBuilder<List<ElectionItem>>(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 1.5),
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    return _ErrorState(
+                      message: snapshot.error.toString(),
+                      onRetry: _refresh,
+                    );
+                  }
+                  final elections = snapshot.data!;
+                  if (elections.isEmpty) return const _EmptyState();
+                  return _ElectionsList(elections: elections);
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -189,16 +193,16 @@ class _NavDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(bottom: BorderSide(color: AppColors.hairline)),
+      color: AppColors.background,
+      padding: const EdgeInsets.symmetric(vertical: 10), // Dá um respiro visual
+      child: const Row( // Row para os botões ficarem lado a lado
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _NavChip(label: 'Eleições activas', active: true),
+          _NavChip(label: 'Resultados', active: false),
+          _NavChip(label: 'Como votar', active: false),
+        ],
       ),
-      child: Row(children: [
-        _NavChip(label: 'Eleições activas', active: true),
-        _NavChip(label: 'Resultados', active: false),
-        _NavChip(label: 'Como votar', active: false),
-      ]),
     );
   }
 }
@@ -237,25 +241,37 @@ class _ElectionsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900),
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(child: _HeroSection(count: elections.length)),
-            SliverToBoxAdapter(child: _SectionHeader(
-              index: 'I',
-              title: 'Eleições activas',
-              kicker: '${elections.length} · ${_monthYear()}',
-            )),
-            SliverList(delegate: SliverChildBuilderDelegate(
-              (context, i) => _ElectionItem(election: elections[i]),
-              childCount: elections.length,
-            )),
-            const SliverToBoxAdapter(child: _ElectionsFooter()),
-          ],
-        ),
-      ),
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(child: _HeroSection(count: elections.length)),
+        SliverToBoxAdapter(child: _SectionHeader(
+          index: 'I',
+          title: 'Eleições activas',
+          kicker: '${elections.length} · ${_monthYear()}',
+        )),
+        if (ResponsiveLayout.isDesktop(context))
+          SliverPadding(
+            padding: const EdgeInsets.all(20),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 400,
+                mainAxisExtent: 260,
+                crossAxisSpacing: 20,
+                mainAxisSpacing: 20,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, i) => _ElectionItem(election: elections[i]),
+                childCount: elections.length,
+              ),
+            ),
+          )
+        else
+          SliverList(delegate: SliverChildBuilderDelegate(
+            (context, i) => _ElectionItem(election: elections[i]),
+            childCount: elections.length,
+          )),
+        const SliverToBoxAdapter(child: _ElectionsFooter()),
+      ],
     );
   }
 
@@ -377,12 +393,16 @@ class _ElectionItem extends StatelessWidget {
     final now = DateTime.now();
     final remaining = election.endDate.difference(now);
     final urgent = remaining.inHours < 24;
+    final isDesktop = ResponsiveLayout.isDesktop(context);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surface,
-        border: Border(bottom: BorderSide(color: AppColors.hairline)),
+        border: isDesktop
+            ? Border.all(color: AppColors.hairline)
+            : const Border(bottom: BorderSide(color: AppColors.hairline)),
+        borderRadius: isDesktop ? BorderRadius.circular(6) : null,
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Type kicker
@@ -672,17 +692,28 @@ class _MiniLiveDotState extends State<_MiniLiveDot> with SingleTickerProviderSta
   void dispose() { _ctrl.dispose(); super.dispose(); }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: _anim,
-    builder: (_, __) => Opacity(
-      opacity: _anim.value,
-      child: Container(
+  Widget build(BuildContext context) {
+    if (!ResponsiveLayout.isDesktop(context)) {
+      return Container(
         width: 7, height: 7,
         decoration: const BoxDecoration(
           color: AppColors.goldContainer,
           shape: BoxShape.circle,
         ),
+      );
+    }
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) => Opacity(
+        opacity: _anim.value,
+        child: Container(
+          width: 7, height: 7,
+          decoration: const BoxDecoration(
+            color: AppColors.goldContainer,
+            shape: BoxShape.circle,
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
