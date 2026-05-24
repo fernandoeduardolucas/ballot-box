@@ -48,6 +48,24 @@ class ElectionItem {
       );
 }
 
+class VoteCountItem {
+  VoteCountItem({
+    required this.candidateId,
+    required this.candidateName,
+    required this.count,
+  });
+
+  final String candidateId;
+  final String candidateName;
+  final int count;
+
+  factory VoteCountItem.fromJson(Map<String, dynamic> json) => VoteCountItem(
+        candidateId:   json['candidateId'] as String,
+        candidateName: json['candidateName'] as String,
+        count:         json['count'] as int,
+      );
+}
+
 sealed class CreateElectionResult {}
 
 final class CreateElectionSuccess extends CreateElectionResult {
@@ -176,6 +194,22 @@ class ElectionService {
         .cast<Map<String, dynamic>>()
         .map(ElectionItem.fromJson)
         .toList();
+  }
+
+  Future<List<VoteCountItem>> getElectionResults(String electionId) async {
+    const query = r'''
+      query ElectionResults($electionId: String!) {
+        electionResults(electionId: $electionId) {
+          candidateId
+          candidateName
+          count
+        }
+      }
+    ''';
+    final result = await _graphql.execute(query: query, variables: {'electionId': electionId});
+    final list = result['data']?['electionResults'] as List<dynamic>?;
+    if (list == null) throw Exception('Resposta inválida do servidor.');
+    return list.cast<Map<String, dynamic>>().map(VoteCountItem.fromJson).toList();
   }
 }
 
