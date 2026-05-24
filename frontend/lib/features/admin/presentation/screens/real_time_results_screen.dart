@@ -5,14 +5,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:sistema_eleitoral_frontend/core/theme/app_colors.dart';
 
-class RealTimeResultsScreen extends StatefulWidget {
-  const RealTimeResultsScreen({super.key});
+class RealTimeResultsSection extends StatefulWidget {
+  const RealTimeResultsSection({super.key});
 
   @override
-  State<RealTimeResultsScreen> createState() => _RealTimeResultsScreenState();
+  State<RealTimeResultsSection> createState() => _RealTimeResultsSectionState();
 }
 
-class _RealTimeResultsScreenState extends State<RealTimeResultsScreen> {
+class _RealTimeResultsSectionState extends State<RealTimeResultsSection> {
   late final WebSocketChannel channel;
   
   // Mapa local para armazenar a contagem por candidato (ID -> Total)
@@ -61,18 +61,11 @@ class _RealTimeResultsScreenState extends State<RealTimeResultsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text('Resultados em Tempo Real', style: GoogleFonts.instrumentSerif()),
-        backgroundColor: AppColors.surface,
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
               Text(
                 'A contagem é atualizada automaticamente via WebSocket.',
                 style: GoogleFonts.atkinsonHyperlegible(fontSize: 16, color: AppColors.inkMuted),
@@ -96,7 +89,22 @@ class _RealTimeResultsScreenState extends State<RealTimeResultsScreen> {
                     }
 
                     if (_counts.isEmpty) {
-                      return const Center(child: CircularProgressIndicator());
+                      return Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(
+                              width: 32, height: 32,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.gold),
+                            ),
+                            const SizedBox(height: 24),
+                            Text(
+                              'A aguardar os primeiros votos na Urna...',
+                              style: GoogleFonts.instrumentSerif(fontSize: 24, color: AppColors.inkMuted),
+                            ),
+                          ],
+                        ),
+                      );
                     }
 
                     return BarChart(
@@ -138,8 +146,6 @@ class _RealTimeResultsScreenState extends State<RealTimeResultsScreen> {
               ),
             ],
           ),
-        ),
-      ),
     );
   }
 }

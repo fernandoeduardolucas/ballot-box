@@ -6,6 +6,7 @@ import 'package:sistema_eleitoral_frontend/core/theme/app_colors.dart';
 import 'package:sistema_eleitoral_frontend/features/admin/presentation/widgets/admin_candidates_section.dart';
 import 'package:sistema_eleitoral_frontend/features/admin/presentation/widgets/admin_elections_section.dart';
 import 'package:sistema_eleitoral_frontend/features/admin/presentation/widgets/admin_panel_section.dart';
+import 'package:sistema_eleitoral_frontend/features/admin/presentation/screens/real_time_results_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -74,7 +75,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       0 => const AdminPanelSection(),
       1 => const AdminElectionsSection(),
       2 => const AdminCandidatesSection(),
-      3 => const _PlaceholderSection(title: 'Resultados', message: 'Os resultados estarão disponíveis após o encerramento das eleições.'),
+      3 => const RealTimeResultsSection(),
       4 => const _PlaceholderSection(title: 'Auditoria', message: 'O registo de auditoria está em desenvolvimento.'),
       _ => const AdminPanelSection(),
     };

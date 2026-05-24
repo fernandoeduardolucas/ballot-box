@@ -160,24 +160,28 @@ object Main extends IOApp.Simple {
             } yield response
         }
 
-        def webSocketRoute: HttpRoutes[IO] = HttpRoutes.of[IO] {
+        def webSocketRoute(wsb: WebSocketBuilder2[IO]): HttpRoutes[IO] = HttpRoutes.of[IO] {
           case GET -> Root / "audit" / "stream" =>
+            import pt.ipp.estg.election.election.domain.{ElectionId, CandidateId}
+            implicit val encodeElectionId: io.circe.Encoder[ElectionId] = io.circe.Encoder.encodeUUID.contramap(_.value)
+            implicit val encodeCandidateId: io.circe.Encoder[CandidateId] = io.circe.Encoder.encodeUUID.contramap(_.value)
+            
             val toClient: Stream[IO, WebSocketFrame] =
               eventBus.subscribe.map(event => WebSocketFrame.Text(event.asJson.noSpaces))
             val fromClient: Pipe[IO, WebSocketFrame, Unit] = _.evalMap(_ => IO.unit)
-            WebSocketBuilder2[IO].build(toClient, fromClient)
+            wsb.build(toClient, fromClient)
         }
 
         EmberServerBuilder
           .default[IO]
           .withHost(host)
           .withPort(port)
-          .withHttpApp(
+          .withHttpWebSocketApp(wsb =>
             CORS.policy
               .withAllowOriginAll
               .withAllowMethodsAll
               .withAllowHeadersAll
-              .httpApp(Router("/" -> (graphqlRoutes <+> webSocketRoute)).orNotFound)
+              .httpApp(Router("/" -> (graphqlRoutes <+> webSocketRoute(wsb))).orNotFound)
           )
           .build
       }

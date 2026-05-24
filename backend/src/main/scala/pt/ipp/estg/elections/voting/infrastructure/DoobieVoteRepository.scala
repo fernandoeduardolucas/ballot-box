@@ -38,7 +38,6 @@ class DoobieVoteRepository[F[_]: MonadCancelThrow](xa: Transactor[F]) extends Vo
       ORDER BY c.number
     """.query[(UUID, String, Long)]
       .to[List]
-      .to[List]
       .transact(xa)
       .map(_.map { case (cId, cName, count) =>
         VoteCount(CandidateId(cId), CandidateName(cName), count)

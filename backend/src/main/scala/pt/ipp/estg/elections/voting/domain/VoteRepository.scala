@@ -1,6 +1,7 @@
 package pt.ipp.estg.election.voting.domain
 
 import pt.ipp.estg.election.election.domain.ElectionId
+import pt.ipp.estg.election.election.domain.CandidateId
 
 import doobie.ConnectionIO
 
