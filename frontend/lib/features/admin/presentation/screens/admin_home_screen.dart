@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:sistema_eleitoral_frontend/core/auth/auth_store.dart';
 import 'package:sistema_eleitoral_frontend/core/presentation/widgets/responsive_layout.dart';
 import 'package:sistema_eleitoral_frontend/core/theme/app_colors.dart';
+import 'package:sistema_eleitoral_frontend/features/admin/presentation/widgets/admin_audit_console.dart';
 import 'package:sistema_eleitoral_frontend/features/admin/presentation/widgets/admin_candidates_section.dart';
 import 'package:sistema_eleitoral_frontend/features/admin/presentation/widgets/admin_elections_section.dart';
 import 'package:sistema_eleitoral_frontend/features/admin/presentation/widgets/admin_panel_section.dart';
@@ -26,7 +27,23 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           const _Dateline(),
           const _Masthead(),
           _NavStrip(activeIndex: _navIndex, onTap: (i) => setState(() => _navIndex = i)),
-          Expanded(child: _buildSection()),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final showAuditRail = constraints.maxWidth >= 1100 && _navIndex != 4;
+                return Row(
+                  children: [
+                    Expanded(child: _buildSection()),
+                    if (showAuditRail)
+                      const SizedBox(
+                        width: 370,
+                        child: AdminAuditConsole(),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
           _Footer(),
         ],
       ),
@@ -71,7 +88,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       1 => const AdminElectionsSection(),
       2 => const AdminCandidatesSection(),
       3 => const _PlaceholderSection(title: 'Resultados', message: 'Os resultados estarão disponíveis após o encerramento das eleições.'),
-      4 => const _PlaceholderSection(title: 'Auditoria', message: 'O registo de auditoria está em desenvolvimento.'),
+      4 => const AdminAuditConsole(),
       _ => const AdminPanelSection(),
     };
   }
