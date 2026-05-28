@@ -13,6 +13,8 @@ class AdminAuditConsole extends StatefulWidget {
 
 class _AdminAuditConsoleState extends State<AdminAuditConsole> {
   static const _maxLines = 200;
+  static const _filterAll = 'TODOS';
+  static const _defaultTypes = ['LOGIN', 'VOTE_CAST', 'DOUBLE_VOTE_ATTEMPT'];
 
   final _service = const AuditStreamService();
   final _scrollController = ScrollController();
@@ -22,6 +24,7 @@ class _AdminAuditConsoleState extends State<AdminAuditConsole> {
   StreamSubscription<AuditStreamEvent>? _subscription;
   String _status = 'a ligar';
   bool _connected = false;
+  String _selectedEventType = _filterAll;
 
   @override
   void initState() {
@@ -101,6 +104,10 @@ class _AdminAuditConsoleState extends State<AdminAuditConsole> {
 
   @override
   Widget build(BuildContext context) {
+    final filteredLines = _selectedEventType == _filterAll
+        ? _lines
+        : _lines.where((line) => line.event.eventType == _selectedEventType).toList();
+
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF07110D),
@@ -113,20 +120,35 @@ class _AdminAuditConsoleState extends State<AdminAuditConsole> {
             status: _status,
             connected: _connected,
             onReconnect: _connect,
+            filterOptions: _eventTypeOptions(),
+            selectedFilter: _selectedEventType,
+            onFilterChanged: (value) {
+              setState(() => _selectedEventType = value);
+            },
           ),
           Expanded(
-            child: _lines.isEmpty
-                ? const _EmptyConsole()
+            child: filteredLines.isEmpty
+                ? _EmptyConsole(hasFilter: _lines.isNotEmpty)
                 : ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
-                    itemCount: _lines.length,
-                    itemBuilder: (context, index) => _ConsoleLine(line: _lines[index]),
+                    itemCount: filteredLines.length,
+                    itemBuilder: (context, index) => _ConsoleLine(line: filteredLines[index]),
                   ),
           ),
         ],
       ),
     );
+  }
+
+  List<String> _eventTypeOptions() {
+    final seenTypes = _lines.map((line) => line.event.eventType).toSet().toList()..sort();
+    final options = <String>{
+      _filterAll,
+      ..._defaultTypes,
+      ...seenTypes,
+    };
+    return options.toList();
   }
 }
 
@@ -135,61 +157,89 @@ class _ConsoleHeader extends StatelessWidget {
     required this.status,
     required this.connected,
     required this.onReconnect,
+    required this.filterOptions,
+    required this.selectedFilter,
+    required this.onFilterChanged,
   });
 
   final String status;
   final bool connected;
   final VoidCallback onReconnect;
+  final List<String> filterOptions;
+  final String selectedFilter;
+  final ValueChanged<String> onFilterChanged;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 45,
-      padding: const EdgeInsets.only(left: 14, right: 8),
+      padding: const EdgeInsets.fromLTRB(14, 8, 8, 10),
       decoration: const BoxDecoration(
         color: Color(0xFF0B1912),
         border: Border(bottom: BorderSide(color: Color(0xFF20372C))),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: connected ? const Color(0xFF57D68D) : const Color(0xFFE3A13B),
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'AUDITORIA / STREAM',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.ibmPlexMono(
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: connected ? const Color(0xFF57D68D) : const Color(0xFFE3A13B),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'AUDITORIA / STREAM',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.ibmPlexMono(
+                    color: const Color(0xFFE4F3E9),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+              Text(
+                status.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.ibmPlexMono(
+                  color: connected ? const Color(0xFF57D68D) : const Color(0xFFE3A13B),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1,
+                ),
+              ),
+              IconButton(
+                onPressed: onReconnect,
+                tooltip: 'Reconectar',
+                icon: const Icon(Icons.refresh_rounded, size: 17),
                 color: const Color(0xFFE4F3E9),
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
               ),
             ),
           ),
-          Text(
-            status.toUpperCase(),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.ibmPlexMono(
-              color: connected ? const Color(0xFF57D68D) : const Color(0xFFE3A13B),
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1,
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 24,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: filterOptions.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 6),
+              itemBuilder: (context, index) {
+                final option = filterOptions[index];
+                final selected = option == selectedFilter;
+                return _TypeChip(
+                  label: option,
+                  selected: selected,
+                  onTap: () => onFilterChanged(option),
+                );
+              },
             ),
-          ),
-          IconButton(
-            onPressed: onReconnect,
-            tooltip: 'Reconectar',
-            icon: const Icon(Icons.refresh_rounded, size: 17),
-            color: const Color(0xFFE4F3E9),
           ),
         ],
       ),
@@ -197,17 +247,62 @@ class _ConsoleHeader extends StatelessWidget {
   }
 }
 
-class _EmptyConsole extends StatelessWidget {
-  const _EmptyConsole();
+class _TypeChip extends StatelessWidget {
+  const _TypeChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(2),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF1D3A2C) : const Color(0xFF0E2118),
+          border: Border.all(
+            color: selected ? const Color(0xFF57D68D) : const Color(0xFF2E4F3F),
+          ),
+          borderRadius: BorderRadius.circular(2),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.ibmPlexMono(
+            color: selected ? const Color(0xFFB8E7C8) : const Color(0xFF87A891),
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.6,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyConsole extends StatelessWidget {
+  const _EmptyConsole({required this.hasFilter});
+
+  final bool hasFilter;
+
+  @override
+  Widget build(BuildContext context) {
+    final message = hasFilter
+        ? '> sem eventos para este tipo de filtro...'
+        : '> a aguardar eventos de seguranca...';
+
     return Padding(
       padding: const EdgeInsets.all(18),
       child: Align(
         alignment: Alignment.topLeft,
         child: Text(
-          '> a aguardar eventos de seguranca...',
+          message,
           style: GoogleFonts.ibmPlexMono(
             color: const Color(0xFF87A891),
             fontSize: 12,
