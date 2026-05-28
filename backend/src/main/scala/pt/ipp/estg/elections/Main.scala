@@ -2,10 +2,13 @@ package pt.ipp.estg.election
 
 import cats.effect._
 import cats.effect.std.Dispatcher
+import cats.syntax.all._
 import com.comcast.ip4s._
 import doobie.util.transactor.Transactor
+import fs2.concurrent.Topic
 import java.util.Properties
 import io.circe.Json
+import io.circe.syntax._
 import org.flywaydb.core.Flyway
 import org.http4s._
 import org.http4s.circe._
@@ -14,10 +17,12 @@ import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.implicits._
 import org.http4s.server.Router
 import org.http4s.server.middleware.CORS
+import org.http4s.server.websocket.WebSocketBuilder2
+import org.http4s.websocket.WebSocketFrame
 import org.typelevel.ci.CIString
 import org.typelevel.log4cats.LoggerFactory
 import org.typelevel.log4cats.slf4j.{Slf4jFactory, Slf4jLogger}
-import pt.ipp.estg.election.aop.{AuditedCastVoteUseCase, AuditedLoginUseCase, AuditedRegisterVoterUseCase, LoggedRegisterVoterUseCase}
+import pt.ipp.estg.election.aop.{AuditEvent, AuditedCastVoteUseCase, AuditedLoginUseCase, AuditedRegisterVoterUseCase, LoggedRegisterVoterUseCase, StreamingAuditLog}
 import pt.ipp.estg.election.api.graphql.{ElectionContext, MutationType, QueryType}
 import pt.ipp.estg.election.config.AppConfig
 import pt.ipp.estg.election.election.application.{AddCandidateUseCase, CreateElectionUseCase, ListActiveElectionsUseCase, ListAllElectionsUseCase, ListElectionCandidatesUseCase}
@@ -60,6 +65,10 @@ object Main extends IOApp.Simple {
       .filter(_.startsWith("Bearer "))
       .map(_.drop(7).trim)
 
+  private def extractWebSocketToken(req: Request[IO]): Option[String] =
+    extractBearerToken(req)
+      .orElse(req.params.get("token").map(_.trim).filter(_.nonEmpty))
+
   def run: IO[Unit] = {
     val config = AppConfig.load()
 
@@ -96,7 +105,6 @@ object Main extends IOApp.Simple {
     val loggedRegister = new LoggedRegisterVoterUseCase[IO](auditedRegister)
 
     val baseLoginUseCase = new LoginVoterUseCase[IO](voterRepo, verifier, tokenGenerator)
-    val auditedLogin     = new AuditedLoginUseCase[IO](baseLoginUseCase, auditLogRepo)
 
     val tokenVerifier     = new JwtTokenVerifier[IO](config.security.jwt.secret)
 
@@ -110,7 +118,6 @@ object Main extends IOApp.Simple {
 
     val voteRepo       = new DoobieVoteRepository[IO](transactor)
     val baseCastVote   = new CastVoteUseCase[IO](electionRepo, candidateRepo, voteRepo)
-    val castVote       = new AuditedCastVoteUseCase[IO](baseCastVote, auditLogRepo)
     val getVoteResults = new GetVoteResultsUseCase[IO](voteRepo)
 
     val schema = Schema(
@@ -123,8 +130,13 @@ object Main extends IOApp.Simple {
     val graphqlPath = config.app.graphql.path.stripPrefix("/")
 
     runMigrations(config) *> (for {
+      auditTopic <- Resource.eval(Topic[IO, AuditEvent])
       dispatcher <- Dispatcher.parallel[IO]
       _ <- {
+        val streamingAuditLog = new StreamingAuditLog[IO](auditLogRepo, auditTopic)
+        val auditedLogin      = new AuditedLoginUseCase[IO](baseLoginUseCase, streamingAuditLog)
+        val castVote          = new AuditedCastVoteUseCase[IO](baseCastVote, streamingAuditLog)
+
         def graphqlRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
           case req @ POST -> Root / `graphqlPath` =>
             val ip       = extractIp(req)
@@ -148,16 +160,35 @@ object Main extends IOApp.Simple {
             } yield response
         }
 
+        def auditRoutes(wsb: WebSocketBuilder2[IO]): HttpRoutes[IO] = HttpRoutes.of[IO] {
+          case req @ GET -> Root / "admin" / "audit" / "stream" =>
+            extractWebSocketToken(req) match {
+              case None =>
+                Forbidden("Token de administracao em falta.")
+              case Some(rawToken) =>
+                tokenVerifier.verify(rawToken).flatMap {
+                  case Some(voter) if voter.isAdmin =>
+                    val toClient = auditTopic
+                      .subscribe(256)
+                      .map(event => WebSocketFrame.Text(event.asJson.noSpaces))
+
+                    wsb.build(toClient, _.void)
+                  case _ =>
+                    Forbidden("Acesso restrito a administradores.")
+                }
+            }
+        }
+
         EmberServerBuilder
           .default[IO]
           .withHost(host)
           .withPort(port)
-          .withHttpApp(
+          .withHttpWebSocketApp(wsb =>
             CORS.policy
               .withAllowOriginAll
               .withAllowMethodsAll
               .withAllowHeadersAll
-              .httpApp(Router("/" -> graphqlRoutes).orNotFound)
+              .httpApp(Router("/" -> (graphqlRoutes <+> auditRoutes(wsb))).orNotFound)
           )
           .build
       }
