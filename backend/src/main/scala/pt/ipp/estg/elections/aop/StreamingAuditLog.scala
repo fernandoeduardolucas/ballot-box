@@ -2,6 +2,7 @@ package pt.ipp.estg.election.aop
 
 import cats.Monad
 import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fs2.concurrent.Topic
 
 final class StreamingAuditLog[F[_]: Monad](
@@ -10,5 +11,5 @@ final class StreamingAuditLog[F[_]: Monad](
 ) extends AuditLogAlg[F] {
 
   def record(event: AuditEvent): F[Unit] =
-    target.record(event) >> topic.publish1(event)
+    target.record(event) >> topic.publish1(event).void
 }
