@@ -4,6 +4,7 @@ import cats.effect.IO
 import pt.ipp.estg.election.api.graphql.schemas.ElectionSchema._
 import sangria.schema._
 
+import scala.concurrent.Future
 import scala.util.Try
 import java.util.UUID
 
@@ -56,6 +57,28 @@ object QueryType {
               }
               .handleError(_ => List.empty)
           )
+      ),
+
+      Field(
+        name      = "electionResults",
+        fieldType = ListType(VoteCountPayloadType),
+        arguments = ElectionIdArg :: Nil,
+        resolve   = ctx => {
+          if (ctx.ctx.authenticatedVoter.isEmpty)
+            Future.failed(new Exception("Autenticação necessária."))
+          else if (!ctx.ctx.authenticatedVoter.exists(_.isAdmin))
+            Future.failed(new Exception("Acesso restrito a administradores."))
+          else
+            ctx.ctx.dispatcher.unsafeToFuture(
+              IO.fromTry(Try(UUID.fromString(ctx.arg(ElectionIdArg))))
+                .flatMap { uuid =>
+                  ctx.ctx.getVoteResultsUseCase.execute(uuid).map(
+                    _.map(vc => VoteCountPayload(vc.candidateId.value.toString, vc.candidateName.value, vc.count))
+                  )
+                }
+                .handleError(_ => List.empty[VoteCountPayload])
+            )
+        }
       )
     )
   )

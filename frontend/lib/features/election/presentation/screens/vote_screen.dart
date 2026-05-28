@@ -1,83 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sistema_eleitoral_frontend/core/services/graphql_service.dart';
 import 'package:sistema_eleitoral_frontend/core/theme/app_colors.dart';
+import 'package:sistema_eleitoral_frontend/features/election/data/election_service.dart';
+import 'package:sistema_eleitoral_frontend/features/election/data/vote_service.dart';
 
 class VoteScreen extends StatefulWidget {
-  const VoteScreen({super.key});
+  const VoteScreen({super.key, required this.args});
+  final VoteScreenArgs args;
 
   @override
   State<VoteScreen> createState() => _VoteScreenState();
 }
 
-class _Candidate {
-  const _Candidate({
-    required this.id,
-    required this.number,
-    required this.name,
-    required this.party,
-    required this.acronym,
-    required this.partyColor,
-    required this.imageUrl,
-  });
-  final int id;
-  final int number;
-  final String name;
-  final String party;
-  final String acronym;
-  final Color partyColor;
-  final String imageUrl;
-}
-
 class _VoteScreenState extends State<VoteScreen> {
-  int? _selectedId;
+  int? _selectedIndex;
   bool _voted = false;
+  bool _alreadyVoted = false;
+  bool _submitting = false;
 
-  static const _candidates = [
-    _Candidate(
-      id: 0, number: 1,
-      name: 'António Monteiro Silva',
-      party: 'Partido da Democracia Social',
-      acronym: 'PDS',
-      partyColor: Color(0xFF1565C0),
-      imageUrl: 'https://i.pravatar.cc/300?img=11',
-    ),
-    _Candidate(
-      id: 1, number: 2,
-      name: 'Maria João Fonseca',
-      party: 'Aliança Nacional',
-      acronym: 'AN',
-      partyColor: Color(0xFFB71C1C),
-      imageUrl: 'https://i.pravatar.cc/300?img=5',
-    ),
-    _Candidate(
-      id: 2, number: 3,
-      name: 'Carlos Eduardo Pereira',
-      party: 'Movimento Independente',
-      acronym: 'MI',
-      partyColor: Color(0xFF2E7D32),
-      imageUrl: 'https://i.pravatar.cc/300?img=8',
-    ),
-    _Candidate(
-      id: 3, number: 4,
-      name: 'Ana Cristina Lopes',
-      party: 'União Progressista',
-      acronym: 'UP',
-      partyColor: Color(0xFFE65100),
-      imageUrl: 'https://i.pravatar.cc/300?img=47',
-    ),
-  ];
+  final _voteService = VoteService(GraphQLService(baseUrl: 'http://localhost:8080/graphql'));
 
   @override
   Widget build(BuildContext context) {
     final selected =
-        _selectedId != null ? _candidates.firstWhere((c) => c.id == _selectedId) : null;
+        _selectedIndex != null ? widget.args.candidates[_selectedIndex!] : null;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Column(
         children: [
           _buildEditorialHeader(),
-          _StatusBar(voted: _voted),
+          _StatusBar(endDate: widget.args.election.endDate, voted: _voted),
           Expanded(
             child: Center(
               child: ConstrainedBox(
@@ -87,25 +41,28 @@ class _VoteScreenState extends State<VoteScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (!_voted) ...[
+                      if (!_voted && !_alreadyVoted) ...[
                         const _InstructionBanner(),
                         const SizedBox(height: 20),
                       ],
-                      for (final c in _candidates)
+                      for (int i = 0; i < widget.args.candidates.length; i++)
                         _CandidateCard(
-                          candidate: c,
-                          isSelected: _selectedId == c.id,
-                          disabled: _voted,
-                          onTap: () => setState(() => _selectedId = c.id),
+                          candidate: widget.args.candidates[i],
+                          isSelected: _selectedIndex == i,
+                          disabled: _voted || _alreadyVoted || _submitting,
+                          onTap: () => setState(() => _selectedIndex = i),
                         ),
                       const SizedBox(height: 8),
-                      if (!_voted)
+                      if (!_voted && !_alreadyVoted)
                         _VoteButton(
-                          enabled: selected != null,
+                          enabled: selected != null && !_voted && !_alreadyVoted && !_submitting,
+                          submitting: _submitting,
                           onVote: () => _confirmVote(selected!),
                         ),
                       if (_voted && selected != null)
                         _VotedBanner(candidate: selected),
+                      if (_alreadyVoted)
+                        const _AlreadyVotedBanner(),
                       const SizedBox(height: 32),
                       _buildFooter(),
                     ],
@@ -154,24 +111,12 @@ class _VoteScreenState extends State<VoteScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    RichText(
-                      text: TextSpan(children: [
-                        TextSpan(
-                          text: 'Eleições Presidenciais ',
-                          style: GoogleFonts.instrumentSerif(
-                            fontSize: 24, color: AppColors.ink,
-                            letterSpacing: -0.4, height: 1.1,
-                          ),
-                        ),
-                        TextSpan(
-                          text: '2026.',
-                          style: GoogleFonts.instrumentSerif(
-                            fontSize: 24, color: AppColors.oxblood,
-                            fontStyle: FontStyle.italic,
-                            letterSpacing: -0.4, height: 1.1,
-                          ),
-                        ),
-                      ]),
+                    Text(
+                      widget.args.election.title,
+                      style: GoogleFonts.instrumentSerif(
+                        fontSize: 24, color: AppColors.ink,
+                        letterSpacing: -0.4, height: 1.1,
+                      ),
                     ),
                   ],
                 ),
@@ -242,7 +187,7 @@ class _VoteScreenState extends State<VoteScreen> {
     );
   }
 
-  Future<void> _confirmVote(_Candidate candidate) async {
+  Future<void> _confirmVote(CandidateItem candidate) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -326,18 +271,56 @@ class _VoteScreenState extends State<VoteScreen> {
         ],
       ),
     );
-    if (confirmed == true && mounted) setState(() => _voted = true);
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _submitting = true);
+    try {
+      final result = await _voteService.castVote(
+        electionId: widget.args.election.id,
+        candidateId: candidate.id,
+      );
+      if (!mounted) return;
+      switch (result) {
+        case CastVoteSuccess():
+          setState(() {
+            _voted = true;
+            _submitting = false;
+          });
+        case CastVoteAlreadyVoted():
+          setState(() {
+            _alreadyVoted = true;
+            _submitting = false;
+          });
+        case CastVoteFailure(:final message):
+          setState(() => _submitting = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message)),
+          );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro: ${e.toString()}')),
+      );
+    }
   }
 }
 
 // ─── Sub-widgets ──────────────────────────────────────────────────────────────
 
 class _StatusBar extends StatelessWidget {
-  const _StatusBar({required this.voted});
+  const _StatusBar({required this.endDate, required this.voted});
+  final DateTime endDate;
   final bool voted;
 
   @override
   Widget build(BuildContext context) {
+    final remaining = endDate.toUtc().difference(DateTime.now().toUtc());
+    final countdownText = remaining.isNegative
+        ? 'Encerrada'
+        : 'Encerra em ${remaining.inHours}h ${remaining.inMinutes.remainder(60)}m';
+
     return Container(
       color: AppColors.surfaceContainerLow,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -376,7 +359,7 @@ class _StatusBar extends StatelessWidget {
           const Icon(Icons.timer_outlined, size: 13, color: AppColors.inkMuted),
           const SizedBox(width: 5),
           Text(
-            'Encerra em 2h 45m',
+            countdownText,
             style: GoogleFonts.ibmPlexMono(color: AppColors.inkMuted, fontSize: 11),
           ),
         ],
@@ -421,7 +404,7 @@ class _CandidateCard extends StatelessWidget {
     required this.disabled,
     required this.onTap,
   });
-  final _Candidate candidate;
+  final CandidateItem candidate;
   final bool isSelected;
   final bool disabled;
   final VoidCallback onTap;
@@ -438,12 +421,12 @@ class _CandidateCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: isSelected
-                ? candidate.partyColor.withValues(alpha: 0.06)
+                ? AppColors.primary.withValues(alpha: 0.06)
                 : AppColors.surface,
             borderRadius: BorderRadius.circular(4),
             border: Border.all(
               color: isSelected
-                  ? candidate.partyColor.withValues(alpha: 0.7)
+                  ? AppColors.primary.withValues(alpha: 0.7)
                   : AppColors.hairline,
               width: isSelected ? 1.5 : 1.0,
             ),
@@ -454,17 +437,17 @@ class _CandidateCard extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: candidate.partyColor.withValues(alpha: 0.1),
+                  color: AppColors.primary.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: candidate.partyColor.withValues(alpha: 0.4),
+                    color: AppColors.primary.withValues(alpha: 0.4),
                   ),
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   '${candidate.number}',
-                  style: TextStyle(
-                    color: candidate.partyColor,
+                  style: const TextStyle(
+                    color: AppColors.primary,
                     fontWeight: FontWeight.w900,
                     fontSize: 15,
                   ),
@@ -472,18 +455,25 @@ class _CandidateCard extends StatelessWidget {
               ),
               const SizedBox(width: 14),
               ClipOval(
-                child: Image.network(
-                  candidate.imageUrl,
-                  width: 60,
-                  height: 60,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    width: 60,
-                    height: 60,
-                    color: AppColors.surfaceContainerLow,
-                    child: const Icon(Icons.person_rounded, color: AppColors.inkDim, size: 28),
-                  ),
-                ),
+                child: candidate.photoUrl != null
+                    ? Image.network(
+                        candidate.photoUrl!,
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 60,
+                          height: 60,
+                          color: AppColors.surfaceContainerLow,
+                          child: const Icon(Icons.person_rounded, color: AppColors.inkDim, size: 28),
+                        ),
+                      )
+                    : Container(
+                        width: 60,
+                        height: 60,
+                        color: AppColors.surfaceContainerLow,
+                        child: const Icon(Icons.person_rounded, color: AppColors.inkDim, size: 28),
+                      ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -499,36 +489,30 @@ class _CandidateCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: candidate.partyColor.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Text(
-                            candidate.acronym,
-                            style: GoogleFonts.ibmPlexSans(
-                              color: candidate.partyColor,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.5,
+                    if (candidate.party != null)
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: Text(
+                                candidate.party!,
+                                style: GoogleFonts.ibmPlexSans(
+                                  color: AppColors.primary,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.5,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            candidate.party,
-                            style: GoogleFonts.ibmPlexSans(
-                              color: AppColors.inkMuted, fontSize: 12,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -537,8 +521,8 @@ class _CandidateCard extends StatelessWidget {
                 duration: const Duration(milliseconds: 180),
                 child: Container(
                   padding: const EdgeInsets.all(5),
-                  decoration: BoxDecoration(
-                    color: candidate.partyColor,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.check_rounded, color: Colors.white, size: 13),
@@ -553,8 +537,13 @@ class _CandidateCard extends StatelessWidget {
 }
 
 class _VoteButton extends StatelessWidget {
-  const _VoteButton({required this.enabled, required this.onVote});
+  const _VoteButton({
+    required this.enabled,
+    required this.submitting,
+    required this.onVote,
+  });
   final bool enabled;
+  final bool submitting;
   final VoidCallback onVote;
 
   @override
@@ -565,8 +554,14 @@ class _VoteButton extends StatelessWidget {
       child: Column(
         children: [
           FilledButton.icon(
-            onPressed: enabled ? onVote : null,
-            icon: const Icon(Icons.how_to_vote_rounded),
+            onPressed: (enabled && !submitting) ? onVote : null,
+            icon: submitting
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.how_to_vote_rounded),
             label: Text(
               'VOTAR',
               style: GoogleFonts.ibmPlexSans(
@@ -587,7 +582,7 @@ class _VoteButton extends StatelessWidget {
 
 class _VotedBanner extends StatelessWidget {
   const _VotedBanner({required this.candidate});
-  final _Candidate candidate;
+  final CandidateItem candidate;
 
   @override
   Widget build(BuildContext context) {
@@ -612,6 +607,42 @@ class _VotedBanner extends StatelessWidget {
             'O seu voto em ${candidate.name} foi registado com sucesso.',
             style: GoogleFonts.atkinsonHyperlegible(
               color: AppColors.success, fontSize: 13, height: 1.6,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+}
+
+class _AlreadyVotedBanner extends StatelessWidget {
+  const _AlreadyVotedBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.goldContainer,
+        border: Border.all(color: AppColors.gold.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.lock_outline_rounded, color: AppColors.gold, size: 44),
+          const SizedBox(height: 14),
+          Text(
+            'Já Votou.',
+            style: GoogleFonts.instrumentSerif(
+              color: AppColors.gold, fontSize: 22, letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Já submeteu o seu voto nesta eleição. Não é possível votar novamente.',
+            style: GoogleFonts.atkinsonHyperlegible(
+              color: AppColors.gold, fontSize: 13, height: 1.6,
             ),
             textAlign: TextAlign.center,
           ),
