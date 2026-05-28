@@ -21,6 +21,11 @@ final class CastVoteAlreadyVoted extends CastVoteResult {
   const CastVoteAlreadyVoted();
 }
 
+final class CastVoteRateLimited extends CastVoteResult {
+  const CastVoteRateLimited({required this.retryAfterSeconds});
+  final int retryAfterSeconds;
+}
+
 final class CastVoteFailure extends CastVoteResult {
   const CastVoteFailure({required this.message});
   final String message;
@@ -85,6 +90,8 @@ class VoteService {
       final message = data['message'] as String? ?? 'Erro desconhecido.';
       if (message == _kAlreadyVotedMessage) return const CastVoteAlreadyVoted();
       return CastVoteFailure(message: message);
+    } on RateLimitException catch (e) {
+      return CastVoteRateLimited(retryAfterSeconds: e.retryAfterSeconds);
     } on Exception catch (e) {
       return CastVoteFailure(message: e.toString());
     }

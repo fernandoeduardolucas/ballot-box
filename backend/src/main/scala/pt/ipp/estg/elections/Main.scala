@@ -22,7 +22,7 @@ import org.http4s.websocket.WebSocketFrame
 import org.typelevel.ci.CIString
 import org.typelevel.log4cats.LoggerFactory
 import org.typelevel.log4cats.slf4j.{Slf4jFactory, Slf4jLogger}
-import pt.ipp.estg.election.aop.{AuditEvent, AuditedCastVoteUseCase, AuditedLoginUseCase, AuditedRegisterVoterUseCase, LoggedRegisterVoterUseCase, StreamingAuditLog}
+import pt.ipp.estg.election.aop.{AuditEvent, AuditedCastVoteUseCase, AuditedLoginUseCase, AuditedRegisterVoterUseCase, DefensiveRateLimitMiddleware, LoggedRegisterVoterUseCase, StreamingAuditLog}
 import pt.ipp.estg.election.api.graphql.{ElectionContext, MutationType, QueryType}
 import pt.ipp.estg.election.config.AppConfig
 import pt.ipp.estg.election.election.application.{AddCandidateUseCase, CreateElectionUseCase, ListActiveElectionsUseCase, ListAllElectionsUseCase, ListElectionCandidatesUseCase}
@@ -132,6 +132,13 @@ object Main extends IOApp.Simple {
     runMigrations(config) *> (for {
       auditTopic <- Resource.eval(Topic[IO, AuditEvent])
       dispatcher <- Dispatcher.parallel[IO]
+      rateLimitMiddleware <- Resource.eval(
+        DefensiveRateLimitMiddleware.forGraphql[IO](
+          graphqlPath   = graphqlPath,
+          extractIp     = extractIp,
+          extractToken  = extractBearerToken
+        )
+      )
       _ <- {
         val streamingAuditLog = new StreamingAuditLog[IO](auditLogRepo, auditTopic)
         val auditedLogin      = new AuditedLoginUseCase[IO](baseLoginUseCase, streamingAuditLog)
@@ -188,7 +195,7 @@ object Main extends IOApp.Simple {
               .withAllowOriginAll
               .withAllowMethodsAll
               .withAllowHeadersAll
-              .httpApp(Router("/" -> (graphqlRoutes <+> auditRoutes(wsb))).orNotFound)
+              .httpApp(rateLimitMiddleware(Router("/" -> (graphqlRoutes <+> auditRoutes(wsb))).orNotFound))
           )
           .build
       }
