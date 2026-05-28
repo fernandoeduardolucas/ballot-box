@@ -221,7 +221,7 @@ class _ConsoleHeader extends StatelessWidget {
                 icon: const Icon(Icons.refresh_rounded, size: 17),
                 color: const Color(0xFFE4F3E9),
               ),
-            ),
+            ],
           ),
           const SizedBox(height: 6),
           SizedBox(
