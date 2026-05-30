@@ -36,11 +36,7 @@ class CastVoteUseCase[F[_]: Sync](
                         .findById(VoterId(voterId))
                         .map(_.toRight(VoterNotEligible: VoteError))
                     )
-      _          <- EitherT.fromEither[F](
-                      GeographicEligibilityLogic
-                        .checkEligibility(voter, election)
-                        .fold(_ => Left(VoterNotEligible: VoteError), _ => Right(()))
-                    )
+      _          <- EitherT.fromEither[F](GeographicEligibilityLogic.checkEligibility(voter, election))
       candidates <- EitherT.liftF(candidateRepo.findByElection(ElectionId(electionId)))
       candidate  <- EitherT.fromEither[F](
                       candidates

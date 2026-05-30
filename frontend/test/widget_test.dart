@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sistema_eleitoral_frontend/core/auth/auth_store.dart';
+import 'package:sistema_eleitoral_frontend/features/election/data/election_service.dart';
+import 'package:sistema_eleitoral_frontend/features/election/domain/election_eligibility.dart';
 
 void main() {
   tearDown(() => AuthStore.instance.clearToken());
@@ -30,6 +32,52 @@ void main() {
     expect(AuthStore.instance.nut3Region, isNull);
     expect(AuthStore.instance.isAuthenticated, isFalse);
   });
+
+  test('filters regional elections for authenticated voters', () {
+    final elections = [
+      _election(scopeRegion: null, scopeLabel: 'Nacional'),
+      _election(scopeRegion: 'am-porto', scopeLabel: 'Porto'),
+      _election(scopeRegion: 'am-lisboa', scopeLabel: 'Lisboa'),
+    ];
+
+    final filtered = filterEligibleElections(
+      elections,
+      isAuthenticated: true,
+      voterNut3Region: 'am-porto',
+    );
+
+    expect(filtered.map((election) => election.scopeRegion), [
+      null,
+      'am-porto',
+    ]);
+  });
+
+  test('keeps all active elections visible before login', () {
+    final elections = [
+      _election(scopeRegion: null, scopeLabel: 'Nacional'),
+      _election(scopeRegion: 'am-lisboa', scopeLabel: 'Lisboa'),
+    ];
+
+    final filtered = filterEligibleElections(
+      elections,
+      isAuthenticated: false,
+      voterNut3Region: null,
+    );
+
+    expect(filtered, elections);
+  });
+}
+
+ElectionItem _election(
+    {required String? scopeRegion, required String scopeLabel}) {
+  return ElectionItem(
+    id: 'election-$scopeLabel',
+    title: 'Election $scopeLabel',
+    startDate: DateTime.utc(2026),
+    endDate: DateTime.utc(2026, 12, 31),
+    scopeRegion: scopeRegion,
+    scopeLabel: scopeLabel,
+  );
 }
 
 String _tokenWithPayload(Map<String, Object?> payload) {
