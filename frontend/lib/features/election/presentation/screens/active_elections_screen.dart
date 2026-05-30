@@ -4,6 +4,7 @@ import 'package:sistema_eleitoral_frontend/core/auth/auth_store.dart';
 import 'package:sistema_eleitoral_frontend/core/services/graphql_service.dart';
 import 'package:sistema_eleitoral_frontend/core/theme/app_colors.dart';
 import 'package:sistema_eleitoral_frontend/features/election/data/election_service.dart';
+import 'package:sistema_eleitoral_frontend/features/election/domain/election_eligibility.dart';
 import 'package:sistema_eleitoral_frontend/core/presentation/widgets/responsive_layout.dart';
 
 class ActiveElectionsScreen extends StatefulWidget {
@@ -56,7 +57,8 @@ class _ActiveElectionsScreenState extends State<ActiveElectionsScreen> {
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
-                      child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 1.5),
+                      child: CircularProgressIndicator(
+                          color: AppColors.primary, strokeWidth: 1.5),
                     );
                   }
                   if (snapshot.hasError) {
@@ -65,7 +67,7 @@ class _ActiveElectionsScreenState extends State<ActiveElectionsScreen> {
                       onRetry: _refresh,
                     );
                   }
-                  final elections = snapshot.data!;
+                  final elections = _eligibleElections(snapshot.data!);
                   if (elections.isEmpty) return const _EmptyState();
                   return _ElectionsList(elections: elections);
                 },
@@ -74,6 +76,15 @@ class _ActiveElectionsScreenState extends State<ActiveElectionsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  List<ElectionItem> _eligibleElections(List<ElectionItem> elections) {
+    final auth = AuthStore.instance;
+    return filterEligibleElections(
+      elections,
+      isAuthenticated: auth.isAuthenticated,
+      voterNut3Region: auth.nut3Region,
     );
   }
 }
@@ -109,15 +120,20 @@ class _ElectionsHeader extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
           child: Row(children: [
             Text('VotoSeguro — Portal do Eleitor',
-              style: GoogleFonts.ibmPlexMono(
-                fontSize: 10, color: AppColors.surface, letterSpacing: 1.2,
-              )),
+                style: GoogleFonts.ibmPlexMono(
+                  fontSize: 10,
+                  color: AppColors.surface,
+                  letterSpacing: 1.2,
+                )),
             const Spacer(),
             _MiniLiveDot(),
             const SizedBox(width: 6),
-            Text('ao vivo', style: GoogleFonts.ibmPlexMono(
-              fontSize: 10, color: AppColors.goldContainer, letterSpacing: 1.2,
-            )),
+            Text('ao vivo',
+                style: GoogleFonts.ibmPlexMono(
+                  fontSize: 10,
+                  color: AppColors.goldContainer,
+                  letterSpacing: 1.2,
+                )),
           ]),
         ),
         // Main bar
@@ -127,14 +143,20 @@ class _ElectionsHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Eleições em curso', style: GoogleFonts.ibmPlexSans(
-                  fontSize: 10, fontWeight: FontWeight.w600,
-                  letterSpacing: 2, color: AppColors.inkMuted,
-                )),
+                Text('Eleições em curso',
+                    style: GoogleFonts.ibmPlexSans(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 2,
+                      color: AppColors.inkMuted,
+                    )),
                 const SizedBox(height: 4),
-                Text('VotoSeguro', style: GoogleFonts.instrumentSerif(
-                  fontSize: 28, color: AppColors.ink, letterSpacing: -0.5,
-                )),
+                Text('VotoSeguro',
+                    style: GoogleFonts.instrumentSerif(
+                      fontSize: 28,
+                      color: AppColors.ink,
+                      letterSpacing: -0.5,
+                    )),
               ]),
               const Spacer(),
               IconButton(
@@ -151,9 +173,12 @@ class _ElectionsHeader extends StatelessWidget {
                     minimumSize: const Size(0, 36),
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                   ),
-                  child: Text('Administração', style: GoogleFonts.ibmPlexSans(
-                    fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1.2,
-                  )),
+                  child: Text('Administração',
+                      style: GoogleFonts.ibmPlexSans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.2,
+                      )),
                 )
               else if (isAuthenticated)
                 OutlinedButton(
@@ -164,9 +189,12 @@ class _ElectionsHeader extends StatelessWidget {
                     foregroundColor: AppColors.oxblood,
                     side: const BorderSide(color: AppColors.oxblood),
                   ),
-                  child: Text('Sair', style: GoogleFonts.ibmPlexSans(
-                    fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1.2,
-                  )),
+                  child: Text('Sair',
+                      style: GoogleFonts.ibmPlexSans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.2,
+                      )),
                 )
               else
                 OutlinedButton(
@@ -175,9 +203,12 @@ class _ElectionsHeader extends StatelessWidget {
                     minimumSize: const Size(0, 36),
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                   ),
-                  child: Text('Entrar', style: GoogleFonts.ibmPlexSans(
-                    fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1.2,
-                  )),
+                  child: Text('Entrar',
+                      style: GoogleFonts.ibmPlexSans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.2,
+                      )),
                 ),
             ],
           ),
@@ -195,7 +226,8 @@ class _NavDivider extends StatelessWidget {
     return Container(
       color: AppColors.background,
       padding: const EdgeInsets.symmetric(vertical: 10), // Dá um respiro visual
-      child: const Row( // Row para os botões ficarem lado a lado
+      child: const Row(
+        // Row para os botões ficarem lado a lado
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           _NavChip(label: 'Eleições activas', active: true),
@@ -224,11 +256,13 @@ class _NavChip extends StatelessWidget {
           ),
         ),
       ),
-      child: Text(label, style: GoogleFonts.ibmPlexSans(
-        fontSize: 11, fontWeight: FontWeight.w600,
-        letterSpacing: 1.4,
-        color: active ? AppColors.ink : AppColors.inkMuted,
-      )),
+      child: Text(label,
+          style: GoogleFonts.ibmPlexSans(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.4,
+            color: active ? AppColors.ink : AppColors.inkMuted,
+          )),
     );
   }
 }
@@ -244,7 +278,8 @@ class _ElectionsList extends StatelessWidget {
     return CustomScrollView(
       slivers: [
         SliverToBoxAdapter(child: _HeroSection(count: elections.length)),
-        SliverToBoxAdapter(child: _SectionHeader(
+        SliverToBoxAdapter(
+            child: _SectionHeader(
           index: 'I',
           title: 'Eleições activas',
           kicker: '${elections.length} · ${_monthYear()}',
@@ -266,7 +301,8 @@ class _ElectionsList extends StatelessWidget {
             ),
           )
         else
-          SliverList(delegate: SliverChildBuilderDelegate(
+          SliverList(
+              delegate: SliverChildBuilderDelegate(
             (context, i) => _ElectionItem(election: elections[i]),
             childCount: elections.length,
           )),
@@ -276,8 +312,20 @@ class _ElectionsList extends StatelessWidget {
   }
 
   String _monthYear() {
-    final months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
-                    'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    final months = [
+      'Jan',
+      'Fev',
+      'Mar',
+      'Abr',
+      'Mai',
+      'Jun',
+      'Jul',
+      'Ago',
+      'Set',
+      'Out',
+      'Nov',
+      'Dez'
+    ];
     final now = DateTime.now();
     return '${months[now.month - 1]} ${now.year}';
   }
@@ -298,34 +346,51 @@ class _HeroSection extends StatelessWidget {
         Row(children: [
           Container(width: 24, height: 1, color: AppColors.inkMuted),
           const SizedBox(width: 10),
-          Text('ELEIÇÕES EM CURSO', style: GoogleFonts.ibmPlexSans(
-            fontSize: 10, fontWeight: FontWeight.w600,
-            letterSpacing: 2, color: AppColors.inkMuted,
-          )),
+          Text('ELEIÇÕES EM CURSO',
+              style: GoogleFonts.ibmPlexSans(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 2,
+                color: AppColors.inkMuted,
+              )),
         ]),
         const SizedBox(height: 14),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('$count', style: GoogleFonts.instrumentSerif(
-            fontSize: 88, color: AppColors.primary,
-            height: 0.85, letterSpacing: -4,
-          )),
+          Text('$count',
+              style: GoogleFonts.instrumentSerif(
+                fontSize: 88,
+                color: AppColors.primary,
+                height: 0.85,
+                letterSpacing: -4,
+              )),
           const SizedBox(width: 14),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                RichText(text: TextSpan(children: [
-                  TextSpan(text: 'actos eleitorais\n', style: GoogleFonts.instrumentSerif(
-                    fontSize: 24, color: AppColors.ink,
-                    height: 1.1, letterSpacing: -0.4,
-                  )),
-                  TextSpan(text: 'a decorrer.', style: GoogleFonts.instrumentSerif(
-                    fontSize: 24, color: AppColors.oxblood,
-                    fontStyle: FontStyle.italic,
-                    height: 1.1, letterSpacing: -0.4,
-                  )),
-                ])),
-              ]),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RichText(
+                        text: TextSpan(children: [
+                      TextSpan(
+                          text: 'actos eleitorais\n',
+                          style: GoogleFonts.instrumentSerif(
+                            fontSize: 24,
+                            color: AppColors.ink,
+                            height: 1.1,
+                            letterSpacing: -0.4,
+                          )),
+                      TextSpan(
+                          text: 'a decorrer.',
+                          style: GoogleFonts.instrumentSerif(
+                            fontSize: 24,
+                            color: AppColors.oxblood,
+                            fontStyle: FontStyle.italic,
+                            height: 1.1,
+                            letterSpacing: -0.4,
+                          )),
+                    ])),
+                  ]),
             ),
           ),
         ]),
@@ -334,7 +399,9 @@ class _HeroSection extends StatelessWidget {
           'Identifique-se com a Chave Móvel Digital ou Cartão de Cidadão. '
           'O voto é secreto, cifrado e verificável.',
           style: GoogleFonts.atkinsonHyperlegible(
-            fontSize: 14, color: AppColors.inkMuted, height: 1.55,
+            fontSize: 14,
+            color: AppColors.inkMuted,
+            height: 1.55,
           ),
         ),
       ]),
@@ -345,7 +412,8 @@ class _HeroSection extends StatelessWidget {
 // ── Section header ────────────────────────────────────────────────────────────
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.index, required this.title, required this.kicker});
+  const _SectionHeader(
+      {required this.index, required this.title, required this.kicker});
   final String index;
   final String title;
   final String kicker;
@@ -364,18 +432,27 @@ class _SectionHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.baseline,
         textBaseline: TextBaseline.alphabetic,
         children: [
-          Text('$index.', style: GoogleFonts.instrumentSerif(
-            fontSize: 18, color: AppColors.oxblood, fontStyle: FontStyle.italic,
-          )),
+          Text('$index.',
+              style: GoogleFonts.instrumentSerif(
+                fontSize: 18,
+                color: AppColors.oxblood,
+                fontStyle: FontStyle.italic,
+              )),
           const SizedBox(width: 10),
-          Text(title.toUpperCase(), style: GoogleFonts.ibmPlexSans(
-            fontSize: 10, fontWeight: FontWeight.w700,
-            letterSpacing: 1.8, color: AppColors.ink,
-          )),
+          Text(title.toUpperCase(),
+              style: GoogleFonts.ibmPlexSans(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.8,
+                color: AppColors.ink,
+              )),
           const Spacer(),
-          Text(kicker, style: GoogleFonts.ibmPlexMono(
-            fontSize: 10, color: AppColors.inkMuted, letterSpacing: 1,
-          )),
+          Text(kicker,
+              style: GoogleFonts.ibmPlexMono(
+                fontSize: 10,
+                color: AppColors.inkMuted,
+                letterSpacing: 1,
+              )),
         ],
       ),
     );
@@ -409,11 +486,13 @@ class _ElectionItem extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Eleição Ativa', style: GoogleFonts.ibmPlexSans(
-              fontSize: 9.5, fontWeight: FontWeight.w700,
-              letterSpacing: 1.8,
-              color: urgent ? AppColors.oxblood : AppColors.inkMuted,
-            )),
+            Text('Eleição Ativa',
+                style: GoogleFonts.ibmPlexSans(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.8,
+                  color: urgent ? AppColors.oxblood : AppColors.inkMuted,
+                )),
             if (urgent)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -421,27 +500,37 @@ class _ElectionItem extends StatelessWidget {
                   color: AppColors.oxbloodContainer,
                   borderRadius: BorderRadius.circular(2),
                 ),
-                child: Text('Encerra hoje', style: GoogleFonts.ibmPlexSans(
-                  fontSize: 10, fontWeight: FontWeight.w600,
-                  letterSpacing: 1.2, color: AppColors.onOxbloodContainer,
-                )),
+                child: Text('Encerra hoje',
+                    style: GoogleFonts.ibmPlexSans(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.2,
+                      color: AppColors.onOxbloodContainer,
+                    )),
               ),
           ],
         ),
         const SizedBox(height: 8),
+        _ScopeTag(label: election.scopeLabel),
+        const SizedBox(height: 8),
 
         // Title
-        Text(election.title, style: GoogleFonts.instrumentSerif(
-          fontSize: 26, color: AppColors.ink,
-          letterSpacing: -0.4, height: 1.1,
-        )),
+        Text(election.title,
+            style: GoogleFonts.instrumentSerif(
+              fontSize: 26,
+              color: AppColors.ink,
+              letterSpacing: -0.4,
+              height: 1.1,
+            )),
         const SizedBox(height: 4),
 
         // Date range
         Text(
           '${_fmt(election.startDate)} — ${_fmt(election.endDate)}',
           style: GoogleFonts.ibmPlexMono(
-            fontSize: 11, color: AppColors.inkMuted, letterSpacing: 0.4,
+            fontSize: 11,
+            color: AppColors.inkMuted,
+            letterSpacing: 0.4,
           ),
         ),
 
@@ -452,15 +541,22 @@ class _ElectionItem extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(urgent ? 'Encerra em ${_timeLeft(remaining)}' : _timeLeft(remaining),
-              style: GoogleFonts.ibmPlexMono(
-                fontSize: 11, letterSpacing: 0.4,
-                color: urgent ? AppColors.oxblood : AppColors.ink,
-                fontWeight: urgent ? FontWeight.w600 : FontWeight.normal,
-              )),
-            Text('Em curso', style: GoogleFonts.ibmPlexSans(
-              fontSize: 10, color: AppColors.inkMuted, letterSpacing: 0.4,
-            )),
+            Text(
+                urgent
+                    ? 'Encerra em ${_timeLeft(remaining)}'
+                    : _timeLeft(remaining),
+                style: GoogleFonts.ibmPlexMono(
+                  fontSize: 11,
+                  letterSpacing: 0.4,
+                  color: urgent ? AppColors.oxblood : AppColors.ink,
+                  fontWeight: urgent ? FontWeight.w600 : FontWeight.normal,
+                )),
+            Text('Em curso',
+                style: GoogleFonts.ibmPlexSans(
+                  fontSize: 10,
+                  color: AppColors.inkMuted,
+                  letterSpacing: 0.4,
+                )),
           ],
         ),
 
@@ -469,33 +565,49 @@ class _ElectionItem extends StatelessWidget {
         Row(children: [
           Expanded(
             child: OutlinedButton(
-              onPressed: () => Navigator.pushNamed(context, '/elections/detail', arguments: election),
+              onPressed: () => Navigator.pushNamed(context, '/elections/detail',
+                  arguments: election),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(0, 44),
                 padding: const EdgeInsets.symmetric(horizontal: 12),
               ),
-              child: Text('VER DETALHES', style: GoogleFonts.ibmPlexSans(
-                fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1.6,
-              )),
+              child: Text('VER DETALHES',
+                  style: GoogleFonts.ibmPlexSans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.6,
+                  )),
             ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: FilledButton.icon(
-              onPressed: () => AuthStore.instance.isAuthenticated
-                  ? Navigator.pushNamed(context, '/elections/detail', arguments: election)
-                  : Navigator.pushNamed(context, '/auth/login'),
-              icon: const Icon(Icons.fingerprint_rounded, size: 16),
-              label: Text(
-                AuthStore.instance.isAuthenticated ? 'VOTAR' : 'ENTRAR',
-                style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.6),
+          if (_showVoteButton()) ...[
+            const SizedBox(width: 10),
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: () => AuthStore.instance.isAuthenticated
+                    ? Navigator.pushNamed(context, '/elections/detail',
+                        arguments: election)
+                    : Navigator.pushNamed(context, '/auth/login'),
+                icon: const Icon(Icons.fingerprint_rounded, size: 16),
+                label: Text(
+                  AuthStore.instance.isAuthenticated ? 'VOTAR' : 'ENTRAR',
+                  style: GoogleFonts.ibmPlexSans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.6),
+                ),
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
               ),
-              style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
             ),
-          ),
+          ],
         ]),
       ]),
     );
+  }
+
+  bool _showVoteButton() {
+    final auth = AuthStore.instance;
+    return !auth.isAuthenticated ||
+        auth.isEligibleForScope(election.scopeRegion);
   }
 
   double _progressValue(ElectionItem e) {
@@ -506,14 +618,45 @@ class _ElectionItem extends StatelessWidget {
   }
 
   String _fmt(DateTime dt) {
-    return '${dt.day.toString().padLeft(2,'0')}/${dt.month.toString().padLeft(2,'0')}/${dt.year} '
-           '${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')}';
+    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year} '
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
   String _timeLeft(Duration d) {
-    if (d.inDays > 0) return '${d.inDays}d ${d.inHours.remainder(24)}h restantes';
-    if (d.inHours > 0) return '${d.inHours}h ${d.inMinutes.remainder(60)}min restantes';
+    if (d.inDays > 0) {
+      return '${d.inDays}d ${d.inHours.remainder(24)}h restantes';
+    }
+    if (d.inHours > 0) {
+      return '${d.inHours}h ${d.inMinutes.remainder(60)}min restantes';
+    }
     return '${d.inMinutes}min restantes';
+  }
+}
+
+class _ScopeTag extends StatelessWidget {
+  const _ScopeTag({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLow,
+          border: Border.all(color: AppColors.hairlineStrong),
+          borderRadius: BorderRadius.circular(2),
+        ),
+        child: Text(label.toUpperCase(),
+            style: GoogleFonts.ibmPlexMono(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.1,
+              color: AppColors.inkMuted,
+            )),
+      ),
+    );
   }
 }
 
@@ -550,23 +693,30 @@ class _EmptyState extends StatelessWidget {
         padding: const EdgeInsets.all(40),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
-            width: 64, height: 64,
+            width: 64,
+            height: 64,
             decoration: BoxDecoration(
               border: Border.all(color: AppColors.hairlineStrong),
               borderRadius: BorderRadius.circular(2),
             ),
-            child: const Icon(Icons.how_to_vote_outlined, color: AppColors.inkDim, size: 28),
+            child: const Icon(Icons.how_to_vote_outlined,
+                color: AppColors.inkDim, size: 28),
           ),
           const SizedBox(height: 20),
-          Text('Sem eleições activas', style: GoogleFonts.instrumentSerif(
-            fontSize: 24, color: AppColors.ink, letterSpacing: -0.3,
-          )),
+          Text('Sem eleições activas',
+              style: GoogleFonts.instrumentSerif(
+                fontSize: 24,
+                color: AppColors.ink,
+                letterSpacing: -0.3,
+              )),
           const SizedBox(height: 8),
           Text(
             'Não existem processos eleitorais em curso neste momento.',
             textAlign: TextAlign.center,
             style: GoogleFonts.atkinsonHyperlegible(
-              fontSize: 14, color: AppColors.inkMuted, height: 1.5,
+              fontSize: 14,
+              color: AppColors.inkMuted,
+              height: 1.5,
             ),
           ),
         ]),
@@ -588,23 +738,32 @@ class _ErrorState extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(40),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 36),
+          const Icon(Icons.error_outline_rounded,
+              color: AppColors.error, size: 36),
           const SizedBox(height: 16),
-          Text('Erro ao carregar eleições', style: GoogleFonts.instrumentSerif(
-            fontSize: 22, color: AppColors.ink,
-          )),
+          Text('Erro ao carregar eleições',
+              style: GoogleFonts.instrumentSerif(
+                fontSize: 22,
+                color: AppColors.ink,
+              )),
           const SizedBox(height: 8),
-          Text(message, textAlign: TextAlign.center,
-            style: GoogleFonts.atkinsonHyperlegible(
-              fontSize: 13, color: AppColors.inkMuted, height: 1.5,
-            )),
+          Text(message,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.atkinsonHyperlegible(
+                fontSize: 13,
+                color: AppColors.inkMuted,
+                height: 1.5,
+              )),
           const SizedBox(height: 24),
           OutlinedButton.icon(
             onPressed: onRetry,
             icon: const Icon(Icons.refresh_rounded, size: 16),
-            label: Text('Tentar novamente', style: GoogleFonts.ibmPlexSans(
-              fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 1.2,
-            )),
+            label: Text('Tentar novamente',
+                style: GoogleFonts.ibmPlexSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.2,
+                )),
           ),
         ]),
       ),
@@ -623,43 +782,77 @@ class _ElectionsFooter extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
       color: AppColors.surfaceContainerLow,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Garantias', style: GoogleFonts.ibmPlexSans(
-          fontSize: 9.5, fontWeight: FontWeight.w700,
-          letterSpacing: 2, color: AppColors.inkMuted,
-        )),
+        Text('Garantias',
+            style: GoogleFonts.ibmPlexSans(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 2,
+              color: AppColors.inkMuted,
+            )),
         const SizedBox(height: 10),
-        RichText(text: TextSpan(children: [
-          TextSpan(text: 'O voto é ', style: GoogleFonts.instrumentSerif(
-            fontSize: 20, color: AppColors.ink, height: 1.3,
-          )),
-          TextSpan(text: 'secreto', style: GoogleFonts.instrumentSerif(
-            fontSize: 20, color: AppColors.oxblood,
-            fontStyle: FontStyle.italic, height: 1.3,
-          )),
-          TextSpan(text: ', ', style: GoogleFonts.instrumentSerif(
-            fontSize: 20, color: AppColors.ink, height: 1.3,
-          )),
-          TextSpan(text: 'cifrado', style: GoogleFonts.instrumentSerif(
-            fontSize: 20, color: AppColors.oxblood,
-            fontStyle: FontStyle.italic, height: 1.3,
-          )),
-          TextSpan(text: ' e ', style: GoogleFonts.instrumentSerif(
-            fontSize: 20, color: AppColors.ink, height: 1.3,
-          )),
-          TextSpan(text: 'verificável', style: GoogleFonts.instrumentSerif(
-            fontSize: 20, color: AppColors.oxblood,
-            fontStyle: FontStyle.italic, height: 1.3,
-          )),
-          TextSpan(text: '.', style: GoogleFonts.instrumentSerif(
-            fontSize: 20, color: AppColors.ink, height: 1.3,
-          )),
+        RichText(
+            text: TextSpan(children: [
+          TextSpan(
+              text: 'O voto é ',
+              style: GoogleFonts.instrumentSerif(
+                fontSize: 20,
+                color: AppColors.ink,
+                height: 1.3,
+              )),
+          TextSpan(
+              text: 'secreto',
+              style: GoogleFonts.instrumentSerif(
+                fontSize: 20,
+                color: AppColors.oxblood,
+                fontStyle: FontStyle.italic,
+                height: 1.3,
+              )),
+          TextSpan(
+              text: ', ',
+              style: GoogleFonts.instrumentSerif(
+                fontSize: 20,
+                color: AppColors.ink,
+                height: 1.3,
+              )),
+          TextSpan(
+              text: 'cifrado',
+              style: GoogleFonts.instrumentSerif(
+                fontSize: 20,
+                color: AppColors.oxblood,
+                fontStyle: FontStyle.italic,
+                height: 1.3,
+              )),
+          TextSpan(
+              text: ' e ',
+              style: GoogleFonts.instrumentSerif(
+                fontSize: 20,
+                color: AppColors.ink,
+                height: 1.3,
+              )),
+          TextSpan(
+              text: 'verificável',
+              style: GoogleFonts.instrumentSerif(
+                fontSize: 20,
+                color: AppColors.oxblood,
+                fontStyle: FontStyle.italic,
+                height: 1.3,
+              )),
+          TextSpan(
+              text: '.',
+              style: GoogleFonts.instrumentSerif(
+                fontSize: 20,
+                color: AppColors.ink,
+                height: 1.3,
+              )),
         ])),
         const SizedBox(height: 10),
         Text(
           'Após submissão, recebe um recibo criptográfico que permite confirmar '
           'a contabilização sem revelar a sua escolha.',
           style: GoogleFonts.atkinsonHyperlegible(
-            fontSize: 12.5, color: AppColors.inkMuted, height: 1.55,
+            fontSize: 12.5,
+            color: AppColors.inkMuted,
+            height: 1.55,
           ),
         ),
       ]),
@@ -674,14 +867,16 @@ class _MiniLiveDot extends StatefulWidget {
   State<_MiniLiveDot> createState() => _MiniLiveDotState();
 }
 
-class _MiniLiveDotState extends State<_MiniLiveDot> with SingleTickerProviderStateMixin {
+class _MiniLiveDotState extends State<_MiniLiveDot>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _anim;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600))
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1600))
       ..repeat(reverse: true);
     _anim = Tween<double>(begin: 1.0, end: 0.45).animate(
       CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
@@ -689,13 +884,17 @@ class _MiniLiveDotState extends State<_MiniLiveDot> with SingleTickerProviderSta
   }
 
   @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     if (!ResponsiveLayout.isDesktop(context)) {
       return Container(
-        width: 7, height: 7,
+        width: 7,
+        height: 7,
         decoration: const BoxDecoration(
           color: AppColors.goldContainer,
           shape: BoxShape.circle,
@@ -707,7 +906,8 @@ class _MiniLiveDotState extends State<_MiniLiveDot> with SingleTickerProviderSta
       builder: (_, __) => Opacity(
         opacity: _anim.value,
         child: Container(
-          width: 7, height: 7,
+          width: 7,
+          height: 7,
           decoration: const BoxDecoration(
             color: AppColors.goldContainer,
             shape: BoxShape.circle,

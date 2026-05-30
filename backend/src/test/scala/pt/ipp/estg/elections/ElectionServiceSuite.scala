@@ -11,6 +11,7 @@ class RegisterVoterUseCaseSuite extends CatsEffectSuite:
     def checkExists(civilId: CivilId): IO[Boolean]         = IO.pure(existingIds.contains(civilId.value))
     def save(voter: Voter): IO[Unit]                        = IO.unit
     def findByCivilId(civilId: CivilId): IO[Option[Voter]] = IO.pure(None)
+    def findById(id: VoterId): IO[Option[Voter]]           = IO.pure(None)
 
   class StubPasswordHasher extends PasswordHasher[IO]:
     def hash(rawPassword: String): IO[PasswordHash] = IO.pure(PasswordHash(s"hashed:$rawPassword"))

@@ -18,12 +18,12 @@ class CandidateItem {
   final int number;
 
   factory CandidateItem.fromJson(Map<String, dynamic> json) => CandidateItem(
-        id:         json['id'] as String,
+        id: json['id'] as String,
         electionId: json['electionId'] as String,
-        name:       json['name'] as String,
-        party:      json['party'] as String?,
-        photoUrl:   json['photoUrl'] as String?,
-        number:     json['number'] as int,
+        name: json['name'] as String,
+        party: json['party'] as String?,
+        photoUrl: json['photoUrl'] as String?,
+        number: json['number'] as int,
       );
 }
 
@@ -33,18 +33,24 @@ class ElectionItem {
     required this.title,
     required this.startDate,
     required this.endDate,
+    required this.scopeRegion,
+    required this.scopeLabel,
   });
 
   final String id;
   final String title;
   final DateTime startDate;
   final DateTime endDate;
+  final String? scopeRegion;
+  final String scopeLabel;
 
   factory ElectionItem.fromJson(Map<String, dynamic> json) => ElectionItem(
-        id:        json['id'] as String,
-        title:     json['title'] as String,
+        id: json['id'] as String,
+        title: json['title'] as String,
         startDate: DateTime.parse(json['startDate'] as String),
-        endDate:   DateTime.parse(json['endDate'] as String),
+        endDate: DateTime.parse(json['endDate'] as String),
+        scopeRegion: json['scopeRegion'] as String?,
+        scopeLabel: json['scopeLabel'] as String? ?? 'Nacional',
       );
 }
 
@@ -56,11 +62,13 @@ final class CreateElectionSuccess extends CreateElectionResult {
     required this.title,
     required this.startDate,
     required this.endDate,
+    required this.scopeLabel,
   });
   final String id;
   final String title;
   final String startDate;
   final String endDate;
+  final String scopeLabel;
 }
 
 final class CreateElectionFailure extends CreateElectionResult {
@@ -77,15 +85,18 @@ class ElectionService {
     required String title,
     required DateTime startDate,
     required DateTime endDate,
+    String? scopeRegion,
   }) async {
     const mutation = r'''
-      mutation CreateElection($title: String!, $startDate: String!, $endDate: String!) {
-        createElection(title: $title, startDate: $startDate, endDate: $endDate) {
+      mutation CreateElection($title: String!, $startDate: String!, $endDate: String!, $scopeRegion: String) {
+        createElection(title: $title, startDate: $startDate, endDate: $endDate, scopeRegion: $scopeRegion) {
           ... on ElectionPayload {
             id
             title
             startDate
             endDate
+            scopeRegion
+            scopeLabel
           }
           ... on ElectionError {
             message
@@ -100,6 +111,7 @@ class ElectionService {
         'title': title,
         'startDate': startDate.toUtc().toIso8601String(),
         'endDate': endDate.toUtc().toIso8601String(),
+        'scopeRegion': scopeRegion,
       },
     );
 
@@ -112,6 +124,7 @@ class ElectionService {
         title: data['title'] as String,
         startDate: data['startDate'] as String,
         endDate: data['endDate'] as String,
+        scopeLabel: data['scopeLabel'] as String? ?? 'Nacional',
       );
     }
 
@@ -128,13 +141,18 @@ class ElectionService {
           title
           startDate
           endDate
+          scopeRegion
+          scopeLabel
         }
       }
     ''';
     final result = await _graphql.execute(query: query);
     final list = result['data']?['allElections'] as List<dynamic>?;
     if (list == null) throw Exception('Resposta inválida do servidor.');
-    return list.cast<Map<String, dynamic>>().map(ElectionItem.fromJson).toList();
+    return list
+        .cast<Map<String, dynamic>>()
+        .map(ElectionItem.fromJson)
+        .toList();
   }
 
   Future<List<CandidateItem>> listElectionCandidates(String electionId) async {
@@ -150,10 +168,14 @@ class ElectionService {
         }
       }
     ''';
-    final result = await _graphql.execute(query: query, variables: {'electionId': electionId});
+    final result = await _graphql
+        .execute(query: query, variables: {'electionId': electionId});
     final list = result['data']?['electionCandidates'] as List<dynamic>?;
     if (list == null) throw Exception('Resposta inválida do servidor.');
-    return list.cast<Map<String, dynamic>>().map(CandidateItem.fromJson).toList();
+    return list
+        .cast<Map<String, dynamic>>()
+        .map(CandidateItem.fromJson)
+        .toList();
   }
 
   Future<List<ElectionItem>> listActiveElections() async {
@@ -164,6 +186,8 @@ class ElectionService {
           title
           startDate
           endDate
+          scopeRegion
+          scopeLabel
         }
       }
     ''';
