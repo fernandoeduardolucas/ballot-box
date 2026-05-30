@@ -14,7 +14,8 @@ class ElectionDetailScreen extends StatefulWidget {
 }
 
 class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
-  final _service = ElectionService(GraphQLService(baseUrl: 'http://localhost:8080/graphql'));
+  final _service =
+      ElectionService(GraphQLService(baseUrl: 'http://localhost:8080/graphql'));
   late Future<List<CandidateItem>> _future;
 
   @override
@@ -39,17 +40,24 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(
-                        child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 1.5),
+                        child: CircularProgressIndicator(
+                            color: AppColors.primary, strokeWidth: 1.5),
                       );
                     }
                     if (snapshot.hasError) {
                       return _ErrorState(message: snapshot.error.toString());
                     }
                     final candidates = snapshot.data ?? [];
+                    final showVoteButton = !AuthStore
+                            .instance.isAuthenticated ||
+                        AuthStore.instance
+                            .isEligibleForScope(widget.election.scopeRegion);
                     return CustomScrollView(
                       slivers: [
-                        SliverToBoxAdapter(child: _InfoSection(election: widget.election)),
-                        SliverToBoxAdapter(child: _CandidatesHeader(count: candidates.length)),
+                        SliverToBoxAdapter(
+                            child: _InfoSection(election: widget.election)),
+                        SliverToBoxAdapter(
+                            child: _CandidatesHeader(count: candidates.length)),
                         if (candidates.isEmpty)
                           const SliverToBoxAdapter(child: _EmptyCandidates())
                         else
@@ -59,30 +67,38 @@ class _ElectionDetailScreenState extends State<ElectionDetailScreen> {
                               childCount: candidates.length,
                             ),
                           ),
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: FilledButton.icon(
-                              onPressed: AuthStore.instance.isAuthenticated
-                                  ? () => Navigator.pushNamed(context, '/elections/vote',
+                        if (showVoteButton)
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: FilledButton.icon(
+                                onPressed: AuthStore.instance.isAuthenticated
+                                    ? () => Navigator.pushNamed(
+                                        context, '/elections/vote',
                                         arguments: VoteScreenArgs(
                                           election: widget.election,
                                           candidates: candidates,
                                         ))
-                                  : () => Navigator.pushNamed(context, '/auth/login'),
-                              icon: const Icon(Icons.fingerprint_rounded, size: 16),
-                              label: Text(
-                                AuthStore.instance.isAuthenticated ? 'VOTAR' : 'ENTRAR PARA VOTAR',
-                                style: GoogleFonts.ibmPlexSans(
-                                  fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.6,
+                                    : () => Navigator.pushNamed(
+                                        context, '/auth/login'),
+                                icon: const Icon(Icons.fingerprint_rounded,
+                                    size: 16),
+                                label: Text(
+                                  AuthStore.instance.isAuthenticated
+                                      ? 'VOTAR'
+                                      : 'ENTRAR PARA VOTAR',
+                                  style: GoogleFonts.ibmPlexSans(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.6,
+                                  ),
                                 ),
-                              ),
-                              style: FilledButton.styleFrom(
-                                minimumSize: const Size(double.infinity, 48),
+                                style: FilledButton.styleFrom(
+                                  minimumSize: const Size(double.infinity, 48),
+                                ),
                               ),
                             ),
                           ),
-                        ),
                       ],
                     );
                   },
@@ -135,13 +151,19 @@ class _Header extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('VotoSeguro — Detalhe da Eleição',
-                        style: GoogleFonts.ibmPlexMono(
-                          fontSize: 10, letterSpacing: 1.8, color: AppColors.inkMuted,
-                        )),
+                          style: GoogleFonts.ibmPlexMono(
+                            fontSize: 10,
+                            letterSpacing: 1.8,
+                            color: AppColors.inkMuted,
+                          )),
                       const SizedBox(height: 6),
-                      Text(election.title, style: GoogleFonts.instrumentSerif(
-                        fontSize: 28, color: AppColors.ink, letterSpacing: -0.4, height: 1.1,
-                      )),
+                      Text(election.title,
+                          style: GoogleFonts.instrumentSerif(
+                            fontSize: 28,
+                            color: AppColors.ink,
+                            letterSpacing: -0.4,
+                            height: 1.1,
+                          )),
                     ],
                   ),
                 ),
@@ -190,19 +212,35 @@ class _InfoSection extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
             child: Text(
-              ended ? 'ENCERRADA' : urgent ? 'ENCERRA HOJE' : 'EM CURSO',
+              ended
+                  ? 'ENCERRADA'
+                  : urgent
+                      ? 'ENCERRA HOJE'
+                      : 'EM CURSO',
               style: GoogleFonts.ibmPlexMono(
-                fontSize: 9, letterSpacing: 1.4, fontWeight: FontWeight.w700,
-                color: ended ? AppColors.inkMuted : urgent ? AppColors.oxblood : AppColors.inkSubtle,
+                fontSize: 9,
+                letterSpacing: 1.4,
+                fontWeight: FontWeight.w700,
+                color: ended
+                    ? AppColors.inkMuted
+                    : urgent
+                        ? AppColors.oxblood
+                        : AppColors.inkSubtle,
               ),
             ),
           ),
+          const SizedBox(width: 8),
+          _ScopeTag(label: election.scopeLabel),
         ]),
         const SizedBox(height: 16),
         Row(children: [
-          Expanded(child: _InfoCell(label: 'Abertura', value: _fmt(election.startDate))),
+          Expanded(
+              child: _InfoCell(
+                  label: 'Abertura', value: _fmt(election.startDate))),
           const SizedBox(width: 24),
-          Expanded(child: _InfoCell(label: 'Encerramento', value: _fmt(election.endDate))),
+          Expanded(
+              child: _InfoCell(
+                  label: 'Encerramento', value: _fmt(election.endDate))),
         ]),
         if (!ended) ...[
           const SizedBox(height: 16),
@@ -212,7 +250,8 @@ class _InfoSection extends StatelessWidget {
               value: _progressValue(),
               minHeight: 3,
               backgroundColor: AppColors.surfaceContainerHigh,
-              valueColor: AlwaysStoppedAnimation(urgent ? AppColors.oxblood : AppColors.primary),
+              valueColor: AlwaysStoppedAnimation(
+                  urgent ? AppColors.oxblood : AppColors.primary),
             ),
           ),
         ],
@@ -222,9 +261,34 @@ class _InfoSection extends StatelessWidget {
 
   double _progressValue() {
     final total = election.endDate.difference(election.startDate).inMinutes;
-    final elapsed = DateTime.now().toUtc().difference(election.startDate).inMinutes;
+    final elapsed =
+        DateTime.now().toUtc().difference(election.startDate).inMinutes;
     if (total <= 0) return 0;
     return (elapsed / total).clamp(0.0, 1.0);
+  }
+}
+
+class _ScopeTag extends StatelessWidget {
+  const _ScopeTag({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        border: Border.all(color: AppColors.hairlineStrong),
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: Text(label.toUpperCase(),
+          style: GoogleFonts.ibmPlexMono(
+            fontSize: 9,
+            letterSpacing: 1.2,
+            fontWeight: FontWeight.w700,
+            color: AppColors.inkMuted,
+          )),
+    );
   }
 }
 
@@ -236,13 +300,20 @@ class _InfoCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: GoogleFonts.ibmPlexSans(
-        fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 1.6, color: AppColors.inkMuted,
-      )),
+      Text(label,
+          style: GoogleFonts.ibmPlexSans(
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.6,
+            color: AppColors.inkMuted,
+          )),
       const SizedBox(height: 4),
-      Text(value, style: GoogleFonts.ibmPlexMono(
-        fontSize: 13, color: AppColors.ink, letterSpacing: 0.2,
-      )),
+      Text(value,
+          style: GoogleFonts.ibmPlexMono(
+            fontSize: 13,
+            color: AppColors.ink,
+            letterSpacing: 0.2,
+          )),
     ]);
   }
 }
@@ -259,20 +330,31 @@ class _CandidatesHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
       decoration: const BoxDecoration(
         color: AppColors.surfaceContainerLow,
-        border: Border.symmetric(horizontal: BorderSide(color: AppColors.hairline)),
+        border:
+            Border.symmetric(horizontal: BorderSide(color: AppColors.hairline)),
       ),
       child: Row(children: [
-        Text('I.', style: GoogleFonts.instrumentSerif(
-          fontSize: 18, color: AppColors.oxblood, fontStyle: FontStyle.italic,
-        )),
+        Text('I.',
+            style: GoogleFonts.instrumentSerif(
+              fontSize: 18,
+              color: AppColors.oxblood,
+              fontStyle: FontStyle.italic,
+            )),
         const SizedBox(width: 10),
-        Text('CANDIDATOS', style: GoogleFonts.ibmPlexSans(
-          fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.8, color: AppColors.ink,
-        )),
+        Text('CANDIDATOS',
+            style: GoogleFonts.ibmPlexSans(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.8,
+              color: AppColors.ink,
+            )),
         const Spacer(),
-        Text('$count inscritos', style: GoogleFonts.ibmPlexMono(
-          fontSize: 10, color: AppColors.inkMuted, letterSpacing: 1,
-        )),
+        Text('$count inscritos',
+            style: GoogleFonts.ibmPlexMono(
+              fontSize: 10,
+              color: AppColors.inkMuted,
+              letterSpacing: 1,
+            )),
       ]),
     );
   }
@@ -292,7 +374,8 @@ class _CandidateRow extends StatelessWidget {
       ),
       child: Row(children: [
         Container(
-          width: 40, height: 40,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
             color: AppColors.surfaceContainerLow,
             borderRadius: BorderRadius.circular(2),
@@ -300,22 +383,31 @@ class _CandidateRow extends StatelessWidget {
           child: candidate.photoUrl != null
               ? ClipRRect(
                   borderRadius: BorderRadius.circular(2),
-                  child: Image.network(candidate.photoUrl!, fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _AvatarPlaceholder(number: candidate.number),
+                  child: Image.network(
+                    candidate.photoUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                        _AvatarPlaceholder(number: candidate.number),
                   ),
                 )
               : _AvatarPlaceholder(number: candidate.number),
         ),
         const SizedBox(width: 16),
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(candidate.name, style: GoogleFonts.instrumentSerif(
-              fontSize: 18, color: AppColors.ink, letterSpacing: -0.2,
-            )),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(candidate.name,
+                style: GoogleFonts.instrumentSerif(
+                  fontSize: 18,
+                  color: AppColors.ink,
+                  letterSpacing: -0.2,
+                )),
             if (candidate.party != null)
-              Text(candidate.party!, style: GoogleFonts.ibmPlexSans(
-                fontSize: 12, color: AppColors.inkMuted,
-              )),
+              Text(candidate.party!,
+                  style: GoogleFonts.ibmPlexSans(
+                    fontSize: 12,
+                    color: AppColors.inkMuted,
+                  )),
           ]),
         ),
         Container(
@@ -324,9 +416,12 @@ class _CandidateRow extends StatelessWidget {
             border: Border.all(color: AppColors.hairlineStrong),
             borderRadius: BorderRadius.circular(2),
           ),
-          child: Text('Nº ${candidate.number}', style: GoogleFonts.ibmPlexMono(
-            fontSize: 12, color: AppColors.inkSubtle, fontWeight: FontWeight.w600,
-          )),
+          child: Text('Nº ${candidate.number}',
+              style: GoogleFonts.ibmPlexMono(
+                fontSize: 12,
+                color: AppColors.inkSubtle,
+                fontWeight: FontWeight.w600,
+              )),
         ),
       ]),
     );
@@ -339,10 +434,12 @@ class _AvatarPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: Text('$number', style: GoogleFonts.instrumentSerif(
-      fontSize: 18, color: AppColors.inkDim,
-    )),
-  );
+        child: Text('$number',
+            style: GoogleFonts.instrumentSerif(
+              fontSize: 18,
+              color: AppColors.inkDim,
+            )),
+      );
 }
 
 class _EmptyCandidates extends StatelessWidget {
@@ -354,9 +451,10 @@ class _EmptyCandidates extends StatelessWidget {
       padding: const EdgeInsets.all(40),
       child: Center(
         child: Text('Ainda não foram inscritos candidatos.',
-          style: GoogleFonts.atkinsonHyperlegible(
-            fontSize: 14, color: AppColors.inkMuted,
-          )),
+            style: GoogleFonts.atkinsonHyperlegible(
+              fontSize: 14,
+              color: AppColors.inkMuted,
+            )),
       ),
     );
   }
@@ -372,10 +470,13 @@ class _ErrorState extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(40),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 32),
+          const Icon(Icons.error_outline_rounded,
+              color: AppColors.error, size: 32),
           const SizedBox(height: 12),
-          Text(message, textAlign: TextAlign.center,
-            style: GoogleFonts.atkinsonHyperlegible(fontSize: 13, color: AppColors.inkMuted)),
+          Text(message,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.atkinsonHyperlegible(
+                  fontSize: 13, color: AppColors.inkMuted)),
         ]),
       ),
     );

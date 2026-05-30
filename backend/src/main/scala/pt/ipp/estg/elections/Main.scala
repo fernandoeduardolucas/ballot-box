@@ -109,7 +109,7 @@ object Main extends IOApp.Simple {
     val listElectionCandidates  = new ListElectionCandidatesUseCase[IO](candidateRepo)
 
     val voteRepo       = new DoobieVoteRepository[IO](transactor)
-    val baseCastVote   = new CastVoteUseCase[IO](electionRepo, candidateRepo, voteRepo)
+    val baseCastVote   = new CastVoteUseCase[IO](electionRepo, candidateRepo, voterRepo, voteRepo)
     val castVote       = new AuditedCastVoteUseCase[IO](baseCastVote, auditLogRepo)
     val getVoteResults = new GetVoteResultsUseCase[IO](voteRepo)
 

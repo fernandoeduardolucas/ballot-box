@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sistema_eleitoral_frontend/core/auth/auth_store.dart';
-import 'package:sistema_eleitoral_frontend/core/services/graphql_service.dart';
 import 'package:sistema_eleitoral_frontend/core/theme/app_colors.dart';
 import 'package:sistema_eleitoral_frontend/features/election/data/election_service.dart';
-import 'package:sistema_eleitoral_frontend/features/election/data/vote_service.dart';
 import 'package:sistema_eleitoral_frontend/features/election/presentation/screens/active_elections_screen.dart';
 import 'package:sistema_eleitoral_frontend/features/election/presentation/screens/add_candidate_screen.dart';
 import 'package:sistema_eleitoral_frontend/features/election/presentation/screens/create_election_screen.dart';

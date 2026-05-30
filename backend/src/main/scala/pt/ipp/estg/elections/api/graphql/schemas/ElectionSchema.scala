@@ -6,7 +6,14 @@ object ElectionSchema {
 
   // ─── Election ───────────────────────────────────────────────────────────────
 
-  case class ElectionPayload(id: String, title: String, startDate: String, endDate: String)
+  case class ElectionPayload(
+    id:          String,
+    title:       String,
+    startDate:   String,
+    endDate:     String,
+    scopeRegion: Option[String],
+    scopeLabel:  String
+  )
   case class ElectionErrorPayload(message: String)
 
   val ElectionPayloadType: ObjectType[Unit, ElectionPayload] = ObjectType(
@@ -16,7 +23,9 @@ object ElectionSchema {
       Field("id",        StringType, resolve = _.value.id),
       Field("title",     StringType, resolve = _.value.title),
       Field("startDate", StringType, resolve = _.value.startDate),
-      Field("endDate",   StringType, resolve = _.value.endDate)
+      Field("endDate",   StringType, resolve = _.value.endDate),
+      Field("scopeRegion", OptionType(StringType), resolve = _.value.scopeRegion),
+      Field("scopeLabel",  StringType, resolve = _.value.scopeLabel)
     )
   )
 

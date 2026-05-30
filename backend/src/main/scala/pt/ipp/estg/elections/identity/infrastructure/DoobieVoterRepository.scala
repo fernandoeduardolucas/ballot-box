@@ -37,4 +37,18 @@ class DoobieVoterRepository[F[_]: MonadCancelThrow](xa: Transactor[F]) extends V
           Voter(VoterId(id), CivilId(cid), PasswordHash(hash), region, admin)
         }
       })
+
+  def findById(voterId: VoterId): F[Option[Voter]] =
+    sql"""
+      SELECT id, civil_id, password_hash, nut3_region, is_admin
+      FROM voters
+      WHERE id = ${voterId.value}
+    """.query[(UUID, String, String, String, Boolean)]
+      .option
+      .transact(xa)
+      .map(_.flatMap { case (id, cid, hash, regionCode, admin) =>
+        Nut3Region.fromCode(regionCode).map { region =>
+          Voter(VoterId(id), CivilId(cid), PasswordHash(hash), region, admin)
+        }
+      })
 }

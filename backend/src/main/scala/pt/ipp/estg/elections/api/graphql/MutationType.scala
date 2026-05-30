@@ -3,9 +3,9 @@ package pt.ipp.estg.election.api.graphql
 import cats.effect.IO
 import pt.ipp.estg.election.api.graphql.schemas.ElectionSchema._
 import pt.ipp.estg.election.api.graphql.schemas.IdentitySchema._
-import pt.ipp.estg.election.election.domain.{CandidateNameTooShort, ElectionAlreadyStarted, ElectionNotFound, EndDateBeforeStartDate, TitleTooShort}
+import pt.ipp.estg.election.election.domain.{CandidateNameTooShort, ElectionAlreadyStarted, ElectionNotFound, ElectionScope, EndDateBeforeStartDate, InvalidElectionScope, TitleTooShort}
 import pt.ipp.estg.election.identity.domain._
-import pt.ipp.estg.election.voting.domain.{AlreadyVoted, CandidateNotInElection, ElectionNotActive}
+import pt.ipp.estg.election.voting.domain.{AlreadyVoted, CandidateNotInElection, ElectionNotActive, VoterNotEligible}
 import sangria.schema._
 
 import java.time.Instant
@@ -21,6 +21,7 @@ object MutationType {
   val TitleArg       = Argument("title",       StringType)
   val StartDateArg   = Argument("startDate",   StringType)
   val EndDateArg     = Argument("endDate",     StringType)
+  val ScopeRegionArg = Argument("scopeRegion", OptionInputType(StringType))
   val ElectionIdArg  = Argument("electionId",  StringType)
   val NameArg        = Argument("name",        StringType)
   val PartyArg       = Argument("party",       OptionInputType(StringType))
@@ -75,7 +76,7 @@ object MutationType {
       Field(
         name      = "createElection",
         fieldType = CreateElectionPayloadType,
-        arguments = TitleArg :: StartDateArg :: EndDateArg :: Nil,
+        arguments = TitleArg :: StartDateArg :: EndDateArg :: ScopeRegionArg :: Nil,
         resolve   = ctx => {
           if (ctx.ctx.authenticatedVoter.isEmpty)
             Future.successful(ElectionErrorPayload("Autenticação necessária."))
@@ -85,6 +86,7 @@ object MutationType {
           val title    = ctx.arg(TitleArg)
           val startStr = ctx.arg(StartDateArg)
           val endStr   = ctx.arg(EndDateArg)
+          val scopeRegion = ctx.arg(ScopeRegionArg)
 
           ctx.ctx.dispatcher.unsafeToFuture(
             IO.fromTry(
@@ -93,8 +95,17 @@ object MutationType {
                 end   <- Try(Instant.parse(endStr))
               } yield (start, end)
             ).flatMap { case (start, end) =>
-              ctx.ctx.createElectionUseCase.execute(title, start, end).map {
-                case Right(election)             => ElectionPayload(election.id.value.toString, election.title.value, election.startDate.toString, election.endDate.toString)
+              ctx.ctx.createElectionUseCase.execute(title, start, end, scopeRegion).map {
+                case Right(election)             =>
+                  ElectionPayload(
+                    election.id.value.toString,
+                    election.title.value,
+                    election.startDate.toString,
+                    election.endDate.toString,
+                    ElectionScope.regionCode(election.scope),
+                    ElectionScope.label(election.scope)
+                  )
+                case Left(InvalidElectionScope)   => ElectionErrorPayload("Ambito geografico invalido.")
                 case Left(EndDateBeforeStartDate) => ElectionErrorPayload("A data de fim deve ser posterior à data de início.")
                 case Left(TitleTooShort)          => ElectionErrorPayload("O título da eleição é demasiado curto (mínimo 3 caracteres).")
               }
@@ -161,6 +172,7 @@ object MutationType {
                 ctx.ctx.castVoteUseCase.execute(vId, eId, cId, ip).map {
                   case Right(vote) =>
                     CastVotePayload(vote.id.value.toString, vote.electionId.value.toString, vote.votedAt.toString)
+                  case Left(VoterNotEligible)       => CastVoteErrorPayload("Eleitor sem elegibilidade geografica para esta eleicao.")
                   case Left(ElectionNotActive)      => CastVoteErrorPayload("A eleição não está activa.")
                   case Left(CandidateNotInElection) => CastVoteErrorPayload("O candidato não pertence a esta eleição.")
                   case Left(AlreadyVoted)           => CastVoteErrorPayload("Já votou nesta eleição.")

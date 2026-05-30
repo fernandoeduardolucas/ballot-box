@@ -1,0 +1,2 @@
+ALTER TABLE elections
+    ADD COLUMN IF NOT EXISTS scope_region VARCHAR(50);

@@ -2,6 +2,7 @@ package pt.ipp.estg.election.api.graphql
 
 import cats.effect.IO
 import pt.ipp.estg.election.api.graphql.schemas.ElectionSchema._
+import pt.ipp.estg.election.election.domain.{Election, ElectionScope}
 import sangria.schema._
 
 import scala.concurrent.Future
@@ -11,6 +12,16 @@ import java.util.UUID
 object QueryType {
 
   private val ElectionIdArg = Argument("electionId", StringType)
+
+  private def toElectionPayload(e: Election): ElectionPayload =
+    ElectionPayload(
+      e.id.value.toString,
+      e.title.value,
+      e.startDate.toString,
+      e.endDate.toString,
+      ElectionScope.regionCode(e.scope),
+      ElectionScope.label(e.scope)
+    )
 
   val Query: ObjectType[ElectionContext, Unit] = ObjectType(
     "Query",
@@ -23,9 +34,7 @@ object QueryType {
         fieldType = ListType(ElectionPayloadType),
         resolve   = ctx =>
           ctx.ctx.dispatcher.unsafeToFuture(
-            ctx.ctx.listActiveElectionsUseCase.execute().map(
-              _.map(e => ElectionPayload(e.id.value.toString, e.title.value, e.startDate.toString, e.endDate.toString))
-            )
+            ctx.ctx.listActiveElectionsUseCase.execute().map(_.map(toElectionPayload))
           )
       ),
 
@@ -34,9 +43,7 @@ object QueryType {
         fieldType = ListType(ElectionPayloadType),
         resolve   = ctx =>
           ctx.ctx.dispatcher.unsafeToFuture(
-            ctx.ctx.listAllElectionsUseCase.execute().map(
-              _.map(e => ElectionPayload(e.id.value.toString, e.title.value, e.startDate.toString, e.endDate.toString))
-            )
+            ctx.ctx.listAllElectionsUseCase.execute().map(_.map(toElectionPayload))
           )
       ),
 
