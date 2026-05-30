@@ -15,7 +15,7 @@ class CastVoteLogicSuite extends munit.FunSuite:
 
   val activeElection: Election = Election(
     id        = electionId,
-    title     = ElectionTitle("Eleição Teste"),
+    title     = ElectionTitle("Election Test"),
     startDate = now.minusSeconds(3600),
     endDate   = now.plusSeconds(3600)
   )
@@ -25,7 +25,7 @@ class CastVoteLogicSuite extends munit.FunSuite:
   val validCandidate: Candidate = Candidate(
     id         = candidateId,
     electionId = electionId,
-    name       = CandidateName("Candidato A"),
+    name       = CandidateName("Candidate A"),
     party      = None,
     photoUrl   = None,
     number     = 1
@@ -40,22 +40,30 @@ class CastVoteLogicSuite extends munit.FunSuite:
     nut3Region = Nut3Region.AreaMetropolitanaPorto
   )
 
-  test("rejeita voto quando eleição ainda não começou"):
+  test("rejects vote before election starts"):
     val notStarted = activeElection.copy(startDate = now.plusSeconds(60))
     assertEquals(CastVoteLogic.validate(notStarted, validCandidate, now), Left(ElectionNotActive))
 
-  test("rejeita voto quando eleição já terminou"):
+  test("rejects vote after election ends"):
     val ended = activeElection.copy(endDate = now.minusSeconds(60))
     assertEquals(CastVoteLogic.validate(ended, validCandidate, now), Left(ElectionNotActive))
 
-  test("aceita voto no instante exato de início"):
+  test("accepts vote exactly at start"):
     val atStart = activeElection.copy(startDate = now)
     assertEquals(CastVoteLogic.validate(atStart, validCandidate, now), Right(()))
 
-  test("rejeita candidato que não pertence à eleição"):
+  test("classifies election state"):
+    val scheduled = activeElection.copy(startDate = now.plusSeconds(60))
+    val closed    = activeElection.copy(endDate = now)
+
+    assertEquals(ElectionState.from(scheduled, now), ElectionState.Scheduled)
+    assertEquals(ElectionState.from(activeElection, now), ElectionState.Active)
+    assertEquals(ElectionState.from(closed, now), ElectionState.Closed)
+
+  test("rejects candidate from another election"):
     assertEquals(CastVoteLogic.validate(activeElection, wrongElectionCandidate, now), Left(CandidateNotInElection))
 
-  test("aceita voto válido"):
+  test("accepts valid vote"):
     assertEquals(CastVoteLogic.validate(activeElection, validCandidate, now), Right(()))
 
   test("geographic eligibility accepts national elections"):

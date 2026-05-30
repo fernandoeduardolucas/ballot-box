@@ -34,7 +34,7 @@ object QueryType {
         fieldType = ListType(ElectionPayloadType),
         resolve   = ctx =>
           ctx.ctx.dispatcher.unsafeToFuture(
-            ctx.ctx.listActiveElectionsUseCase.execute().map(_.map(toElectionPayload))
+            ctx.ctx.application.listActiveElections.execute().map(_.map(toElectionPayload))
           )
       ),
 
@@ -43,7 +43,7 @@ object QueryType {
         fieldType = ListType(ElectionPayloadType),
         resolve   = ctx =>
           ctx.ctx.dispatcher.unsafeToFuture(
-            ctx.ctx.listAllElectionsUseCase.execute().map(_.map(toElectionPayload))
+            ctx.ctx.application.listAllElections.execute().map(_.map(toElectionPayload))
           )
       ),
 
@@ -55,7 +55,7 @@ object QueryType {
           ctx.ctx.dispatcher.unsafeToFuture(
             IO.fromTry(Try(UUID.fromString(ctx.arg(ElectionIdArg))))
               .flatMap { uuid =>
-                ctx.ctx.listElectionCandidatesUseCase.execute(uuid).map(
+                ctx.ctx.application.listElectionCandidates.execute(uuid).map(
                   _.map(c => CandidatePayload(
                     c.id.value.toString, c.electionId.value.toString,
                     c.name.value, c.party, c.photoUrl, c.number
@@ -79,7 +79,7 @@ object QueryType {
             ctx.ctx.dispatcher.unsafeToFuture(
               IO.fromTry(Try(UUID.fromString(ctx.arg(ElectionIdArg))))
                 .flatMap { uuid =>
-                  ctx.ctx.getVoteResultsUseCase.execute(uuid).map(
+                  ctx.ctx.application.getVoteResults.execute(uuid).map(
                     _.map(vc => VoteCountPayload(vc.candidateId.value.toString, vc.candidateName.value, vc.count))
                   )
                 }
