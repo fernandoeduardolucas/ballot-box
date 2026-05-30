@@ -1,7 +1,7 @@
 package pt.ipp.estg.election.voting.domain
 
 import java.time.Instant
-import pt.ipp.estg.election.election.domain.{Election, Candidate}
+import pt.ipp.estg.election.election.domain.{Candidate, Election, ElectionState}
 
 object CastVoteLogic {
 
@@ -10,9 +10,11 @@ object CastVoteLogic {
     candidate: Candidate,
     now:       Instant
   ): Either[VoteError, Unit] =
+    // The State object decides whether voting is currently open.
+    val state = ElectionState.from(election, now)
     for {
       _ <- Either.cond(
-             !election.startDate.isAfter(now) && election.endDate.isAfter(now),
+             state.allowsVoting,
              (),
              ElectionNotActive: VoteError
            )

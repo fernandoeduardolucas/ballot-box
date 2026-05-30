@@ -19,14 +19,14 @@ import org.typelevel.log4cats.LoggerFactory
 import org.typelevel.log4cats.slf4j.{Slf4jFactory, Slf4jLogger}
 import pt.ipp.estg.election.aop.{AuditedCastVoteUseCase, AuditedLoginUseCase, AuditedRegisterVoterUseCase, LoggedRegisterVoterUseCase}
 import pt.ipp.estg.election.api.graphql.{ElectionContext, MutationType, QueryType}
+import pt.ipp.estg.election.application.ElectionApplicationFacade
 import pt.ipp.estg.election.config.AppConfig
 import pt.ipp.estg.election.election.application.{AddCandidateUseCase, CreateElectionUseCase, ListActiveElectionsUseCase, ListAllElectionsUseCase, ListElectionCandidatesUseCase}
-import pt.ipp.estg.election.election.infrastructure.{DoobieCandidateRepository, DoobieElectionRepository}
-import pt.ipp.estg.election.voting.application.{CastVoteUseCase, GetVoteResultsUseCase}
-import pt.ipp.estg.election.voting.infrastructure.DoobieVoteRepository
 import pt.ipp.estg.election.identity.application.{LoginVoterUseCase, RegisterVoterUseCase}
 import pt.ipp.estg.election.identity.domain.AuthenticatedVoter
 import pt.ipp.estg.election.identity.infrastructure._
+import pt.ipp.estg.election.infrastructure.DoobieRepositoryFactory
+import pt.ipp.estg.election.voting.application.{CastVoteUseCase, GetVoteResultsUseCase}
 import sangria.execution.Executor
 import sangria.marshalling.circe._
 import sangria.parser.QueryParser
@@ -79,8 +79,7 @@ object Main extends IOApp.Simple {
       None
     )
 
-    val voterRepo      = new DoobieVoterRepository[IO](transactor)
-    val auditLogRepo   = new DoobieAuditLogRepository[IO](transactor)
+    val repositories   = new DoobieRepositoryFactory[IO](transactor)
     val hasher         = new BcryptPasswordHasher[IO]
     val verifier       = new BcryptPasswordVerifier[IO]
     val tokenGenerator = new JwtTokenGenerator[IO](
@@ -88,30 +87,44 @@ object Main extends IOApp.Simple {
       config.security.jwt.expirationSeconds
     )
 
-    val baseRegisterUseCase = new RegisterVoterUseCase[IO](voterRepo, hasher)
+    val baseRegisterUseCase = new RegisterVoterUseCase[IO](repositories.voterRepository, hasher)
     val auditedRegister     = new AuditedRegisterVoterUseCase[IO](
       baseRegisterUseCase,
       Slf4jLogger.getLoggerFromName[IO]("audit.identity.register")
     )
     val loggedRegister = new LoggedRegisterVoterUseCase[IO](auditedRegister)
 
-    val baseLoginUseCase = new LoginVoterUseCase[IO](voterRepo, verifier, tokenGenerator)
-    val auditedLogin     = new AuditedLoginUseCase[IO](baseLoginUseCase, auditLogRepo)
+    val baseLoginUseCase = new LoginVoterUseCase[IO](repositories.voterRepository, verifier, tokenGenerator)
+    val auditedLogin     = new AuditedLoginUseCase[IO](baseLoginUseCase, repositories.auditLogRepository)
 
     val tokenVerifier     = new JwtTokenVerifier[IO](config.security.jwt.secret)
 
-    val electionRepo            = new DoobieElectionRepository[IO](transactor)
-    val candidateRepo           = new DoobieCandidateRepository[IO](transactor)
-    val createElection          = new CreateElectionUseCase[IO](electionRepo)
-    val addCandidate            = new AddCandidateUseCase[IO](electionRepo, candidateRepo)
-    val listActiveElections     = new ListActiveElectionsUseCase[IO](electionRepo)
-    val listAllElections        = new ListAllElectionsUseCase[IO](electionRepo)
-    val listElectionCandidates  = new ListElectionCandidatesUseCase[IO](candidateRepo)
+    val createElection         = new CreateElectionUseCase[IO](repositories.electionRepository)
+    val addCandidate           = new AddCandidateUseCase[IO](repositories.electionRepository, repositories.candidateRepository)
+    val listActiveElections    = new ListActiveElectionsUseCase[IO](repositories.electionRepository)
+    val listAllElections       = new ListAllElectionsUseCase[IO](repositories.electionRepository)
+    val listElectionCandidates = new ListElectionCandidatesUseCase[IO](repositories.candidateRepository)
 
-    val voteRepo       = new DoobieVoteRepository[IO](transactor)
-    val baseCastVote   = new CastVoteUseCase[IO](electionRepo, candidateRepo, voterRepo, voteRepo)
-    val castVote       = new AuditedCastVoteUseCase[IO](baseCastVote, auditLogRepo)
-    val getVoteResults = new GetVoteResultsUseCase[IO](voteRepo)
+    val baseCastVote = new CastVoteUseCase[IO](
+      repositories.electionRepository,
+      repositories.candidateRepository,
+      repositories.voterRepository,
+      repositories.voteRepository
+    )
+    val castVote       = new AuditedCastVoteUseCase[IO](baseCastVote, repositories.auditLogRepository)
+    val getVoteResults = new GetVoteResultsUseCase[IO](repositories.voteRepository)
+
+    val application = ElectionApplicationFacade[IO](
+      registerVoter          = loggedRegister,
+      loginVoter             = auditedLogin,
+      createElection         = createElection,
+      addCandidate           = addCandidate,
+      listActiveElections    = listActiveElections,
+      listAllElections       = listAllElections,
+      listElectionCandidates = listElectionCandidates,
+      castVote               = castVote,
+      getVoteResults         = getVoteResults
+    )
 
     val schema = Schema(
       query    = QueryType.Query,
@@ -131,7 +144,7 @@ object Main extends IOApp.Simple {
             val rawToken = extractBearerToken(req)
             for {
               authedVoter <- rawToken.fold(IO.pure(Option.empty[AuthenticatedVoter]))(tokenVerifier.verify)
-              context      = ElectionContext(loggedRegister, auditedLogin, createElection, addCandidate, listActiveElections, listAllElections, listElectionCandidates, castVote, getVoteResults, authedVoter, dispatcher, ip)
+              context      = ElectionContext(application, authedVoter, dispatcher, ip)
               response    <- req.as[Json].flatMap { body =>
                 val query     = body.hcursor.get[String]("query").getOrElse("")
                 val variables = body.hcursor.get[Json]("variables").getOrElse(Json.obj())

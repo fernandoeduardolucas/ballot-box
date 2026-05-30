@@ -43,7 +43,7 @@ object MutationType {
           val nut3Code  = ctx.arg(Nut3RegionArg)
 
           ctx.ctx.dispatcher.unsafeToFuture(
-            ctx.ctx.registerVoterUseCase.execute(civilId, password, nut3Code).map {
+            ctx.ctx.application.registerVoter.execute(civilId, password, nut3Code).map {
               case Right(voter)               => voter
               case Left(CivilIdAlreadyExists) => RegistrationErrorPayload("O número de identificação civil já está registado.")
               case Left(InvalidCivilIdFormat) => RegistrationErrorPayload("Formato do identificador civil inválido.")
@@ -64,7 +64,7 @@ object MutationType {
           val ip       = ctx.ctx.requestIp
 
           ctx.ctx.dispatcher.unsafeToFuture(
-            ctx.ctx.loginVoterUseCase.execute(civilId, password, ip).map {
+            ctx.ctx.application.loginVoter.execute(civilId, password, ip).map {
               case Right((token, isAdmin)) => LoginPayload(token.value, isAdmin)
               case Left(VoterNotFound)     => LoginErrorPayload("Eleitor não encontrado.")
               case Left(InvalidPassword)   => LoginErrorPayload("Credenciais inválidas.")
@@ -95,7 +95,7 @@ object MutationType {
                 end   <- Try(Instant.parse(endStr))
               } yield (start, end)
             ).flatMap { case (start, end) =>
-              ctx.ctx.createElectionUseCase.execute(title, start, end, scopeRegion).map {
+              ctx.ctx.application.createElection.execute(title, start, end, scopeRegion).map {
                 case Right(election)             =>
                   ElectionPayload(
                     election.id.value.toString,
@@ -135,7 +135,7 @@ object MutationType {
           ctx.ctx.dispatcher.unsafeToFuture(
             IO.fromTry(Try(UUID.fromString(electionIdStr)))
               .flatMap { electionId =>
-                ctx.ctx.addCandidateUseCase.execute(electionId, name, party, photoUrl, number).map {
+                ctx.ctx.application.addCandidate.execute(electionId, name, party, photoUrl, number).map {
                   case Right(c)                    =>
                     CandidatePayload(c.id.value.toString, c.electionId.value.toString, c.name.value, c.party, c.photoUrl, c.number)
                   case Left(ElectionNotFound)      => CandidateErrorPayload("Eleição não encontrada.")
@@ -169,7 +169,7 @@ object MutationType {
                   cId <- Try(UUID.fromString(candidateIdStr))
                 } yield (eId, cId)
               ).flatMap { case (eId, cId) =>
-                ctx.ctx.castVoteUseCase.execute(vId, eId, cId, ip).map {
+                ctx.ctx.application.castVote.execute(vId, eId, cId, ip).map {
                   case Right(vote) =>
                     CastVotePayload(vote.id.value.toString, vote.electionId.value.toString, vote.votedAt.toString)
                   case Left(VoterNotEligible)       => CastVoteErrorPayload("Eleitor sem elegibilidade geografica para esta eleicao.")
