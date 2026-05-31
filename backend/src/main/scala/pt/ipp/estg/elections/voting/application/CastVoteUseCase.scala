@@ -5,9 +5,9 @@ import cats.effect.Sync
 import cats.syntax.functor._
 import pt.ipp.estg.election.election.domain.{CandidateId, ElectionId}
 import pt.ipp.estg.election.election.domain.{CandidateRepository, ElectionRepository}
-import pt.ipp.estg.election.identity.domain.VoterId
+import pt.ipp.estg.election.identity.domain.{VoterId, VoterRepository}
 import pt.ipp.estg.election.voting.domain.{CastVoteLogic, Vote, VoteId, VoteError, VoteRepository}
-import pt.ipp.estg.election.voting.domain.{ElectionNotActive, CandidateNotInElection}
+import pt.ipp.estg.election.voting.domain.{ElectionNotActive, CandidateNotInElection, GeographicEligibilityLogic, VoterNotEligible}
 
 import java.time.Instant
 import java.util.UUID
@@ -19,6 +19,7 @@ import pt.ipp.estg.election.voting.infrastructure.{VoteCastEvent, VoteEventBus}
 class CastVoteUseCase[F[_]: Sync](
   electionRepo:  ElectionRepository[F],
   candidateRepo: CandidateRepository[F],
+  voterRepo:     VoterRepository[F],
   voteRepo:      VoteRepository[F],
   eventBus:      VoteEventBus[F],
   xa:            Transactor[F]
@@ -36,6 +37,12 @@ class CastVoteUseCase[F[_]: Sync](
                         .findById(ElectionId(electionId))
                         .map(_.toRight(ElectionNotActive: VoteError))
                     )
+      voter      <- EitherT(
+                      voterRepo
+                        .findById(VoterId(voterId))
+                        .map(_.toRight(VoterNotEligible: VoteError))
+                    )
+      _          <- EitherT.fromEither[F](GeographicEligibilityLogic.checkEligibility(voter, election))
       candidates <- EitherT.liftF(candidateRepo.findByElection(ElectionId(electionId)))
       candidate  <- EitherT.fromEither[F](
                       candidates

@@ -12,8 +12,10 @@ object AddCandidateLogic {
     number:   Int,
     now:      Instant
   ): Either[CandidateError, (CandidateName, Option[String], Option[String], Int)] =
+    // The State object decides whether this election still accepts candidates.
+    val state = ElectionState.from(election, now)
     for {
-      _ <- Either.cond(election.startDate.isAfter(now), (), ElectionAlreadyStarted: CandidateError)
+      _ <- Either.cond(state.allowsCandidateRegistration, (), ElectionAlreadyStarted: CandidateError)
       _ <- Either.cond(name.trim.length >= 2, (), CandidateNameTooShort: CandidateError)
     } yield (
       CandidateName(name.trim),
