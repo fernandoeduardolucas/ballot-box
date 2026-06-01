@@ -4,6 +4,36 @@ import 'package:sistema_eleitoral_frontend/core/theme/app_colors.dart';
 import 'package:sistema_eleitoral_frontend/core/services/graphql_service.dart';
 import 'package:sistema_eleitoral_frontend/features/election/data/election_service.dart';
 
+const _nationalScope = '__national__';
+const _scopeOptions = [
+  (_nationalScope, 'Nacional'),
+  ('alto-minho', 'Alto Minho'),
+  ('cavado', 'Cavado'),
+  ('ave', 'Ave'),
+  ('am-porto', 'Porto'),
+  ('alto-tamega', 'Alto Tamega'),
+  ('tamega-e-sousa', 'Tamega e Sousa'),
+  ('douro', 'Douro'),
+  ('terras-tras-os-montes', 'Terras de Tras-os-Montes'),
+  ('oeste', 'Oeste'),
+  ('regiao-aveiro', 'Regiao de Aveiro'),
+  ('regiao-coimbra', 'Regiao de Coimbra'),
+  ('regiao-leiria', 'Regiao de Leiria'),
+  ('viseu-dao-lafoes', 'Viseu Dao Lafoes'),
+  ('beira-baixa', 'Beira Baixa'),
+  ('medio-tejo', 'Medio Tejo'),
+  ('beiras-serra', 'Beiras e Serra da Estrela'),
+  ('am-lisboa', 'Lisboa'),
+  ('alentejo-litoral', 'Alentejo Litoral'),
+  ('baixo-alentejo', 'Baixo Alentejo'),
+  ('lezira-do-tejo', 'Leziria do Tejo'),
+  ('alto-alentejo', 'Alto Alentejo'),
+  ('alentejo-central', 'Alentejo Central'),
+  ('algarve', 'Algarve'),
+  ('acores', 'Acores'),
+  ('madeira', 'Madeira'),
+];
+
 class CreateElectionScreen extends StatefulWidget {
   const CreateElectionScreen({super.key});
 
@@ -16,6 +46,7 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
   final _titleController = TextEditingController();
   DateTime? _startDateTime;
   DateTime? _endDateTime;
+  String _selectedScope = _nationalScope;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -31,8 +62,9 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
 
   Future<void> _pickDateTime({required bool isStart}) async {
     final now = DateTime.now();
-    final initial =
-        isStart ? (_startDateTime ?? now) : (_endDateTime ?? _startDateTime ?? now);
+    final initial = isStart
+        ? (_startDateTime ?? now)
+        : (_endDateTime ?? _startDateTime ?? now);
 
     final date = await showDatePicker(
       context: context,
@@ -50,11 +82,14 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
     );
     if (time == null || !mounted) return;
 
-    final dt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    final dt =
+        DateTime(date.year, date.month, date.day, time.hour, time.minute);
     setState(() {
       if (isStart) {
         _startDateTime = dt;
-        if (_endDateTime != null && !_endDateTime!.isAfter(dt)) _endDateTime = null;
+        if (_endDateTime != null && !_endDateTime!.isAfter(dt)) {
+          _endDateTime = null;
+        }
       } else {
         _endDateTime = dt;
       }
@@ -70,7 +105,8 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
       return;
     }
     if (_endDateTime == null) {
-      setState(() => _errorMessage = 'Selecione a data e hora de encerramento.');
+      setState(
+          () => _errorMessage = 'Selecione a data e hora de encerramento.');
       return;
     }
 
@@ -80,6 +116,7 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
         title: _titleController.text.trim(),
         startDate: _startDateTime!,
         endDate: _endDateTime!,
+        scopeRegion: _selectedScope == _nationalScope ? null : _selectedScope,
       );
       if (!mounted) return;
       switch (result) {
@@ -90,7 +127,8 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
       }
     } catch (_) {
       setState(
-        () => _errorMessage = 'Não foi possível ligar ao servidor. Verifique a ligação.',
+        () => _errorMessage =
+            'Não foi possível ligar ao servidor. Verifique a ligação.',
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -117,13 +155,16 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
                 color: AppColors.successContainer,
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Icon(Icons.check_rounded, size: 48, color: AppColors.success),
+              child: const Icon(Icons.check_rounded,
+                  size: 48, color: AppColors.success),
             ),
             const SizedBox(height: 20),
             Text(
               'Eleição criada.',
               style: GoogleFonts.instrumentSerif(
-                fontSize: 26, color: AppColors.ink, letterSpacing: -0.3,
+                fontSize: 26,
+                color: AppColors.ink,
+                letterSpacing: -0.3,
               ),
             ),
             const SizedBox(height: 16),
@@ -132,7 +173,8 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
               padding: const EdgeInsets.all(14),
               decoration: const BoxDecoration(
                 color: AppColors.surfaceContainerLow,
-                border: Border(left: BorderSide(color: AppColors.gold, width: 3)),
+                border:
+                    Border(left: BorderSide(color: AppColors.gold, width: 3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,14 +182,25 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
                   Text(
                     election.title,
                     style: GoogleFonts.ibmPlexSans(
-                      fontWeight: FontWeight.w600, fontSize: 15, color: AppColors.ink,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    election.scopeLabel,
+                    style: GoogleFonts.ibmPlexMono(
+                      fontSize: 11,
+                      color: AppColors.inkMuted,
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     election.id,
                     style: GoogleFonts.ibmPlexMono(
-                      fontSize: 11, color: AppColors.inkMuted,
+                      fontSize: 11,
+                      color: AppColors.inkMuted,
                     ),
                   ),
                 ],
@@ -166,11 +219,13 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
             },
             style: FilledButton.styleFrom(
               minimumSize: const Size(double.infinity, 48),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4)),
             ),
             child: Text(
               'CONCLUÍDO',
-              style: GoogleFonts.ibmPlexSans(fontWeight: FontWeight.w700, fontSize: 12, letterSpacing: 2),
+              style: GoogleFonts.ibmPlexSans(
+                  fontWeight: FontWeight.w700, fontSize: 12, letterSpacing: 2),
             ),
           ),
         ],
@@ -219,7 +274,8 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: AppColors.ink),
+                icon:
+                    const Icon(Icons.arrow_back_rounded, color: AppColors.ink),
                 tooltip: 'Voltar',
                 onPressed: () => Navigator.pop(context),
               ),
@@ -232,7 +288,9 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
                     Text(
                       'VotoSeguro — Administração',
                       style: GoogleFonts.ibmPlexMono(
-                        fontSize: 10, letterSpacing: 1.8, color: AppColors.inkMuted,
+                        fontSize: 10,
+                        letterSpacing: 1.8,
+                        color: AppColors.inkMuted,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -241,16 +299,20 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
                         TextSpan(
                           text: 'Novo processo ',
                           style: GoogleFonts.instrumentSerif(
-                            fontSize: 28, color: AppColors.ink,
-                            letterSpacing: -0.5, height: 1.05,
+                            fontSize: 28,
+                            color: AppColors.ink,
+                            letterSpacing: -0.5,
+                            height: 1.05,
                           ),
                         ),
                         TextSpan(
                           text: 'eleitoral.',
                           style: GoogleFonts.instrumentSerif(
-                            fontSize: 28, color: AppColors.oxblood,
+                            fontSize: 28,
+                            color: AppColors.oxblood,
                             fontStyle: FontStyle.italic,
-                            letterSpacing: -0.5, height: 1.05,
+                            letterSpacing: -0.5,
+                            height: 1.05,
                           ),
                         ),
                       ]),
@@ -284,15 +346,20 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
             TextFormField(
               controller: _titleController,
               maxLength: 255,
-              style: GoogleFonts.ibmPlexSans(fontSize: 15, color: AppColors.ink),
+              style:
+                  GoogleFonts.ibmPlexSans(fontSize: 15, color: AppColors.ink),
               decoration: const InputDecoration(
                 hintText: 'Ex: Eleições Presidenciais 2026',
                 prefixIcon: Icon(Icons.title_rounded),
                 counterText: '',
               ),
               validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'O título é obrigatório.';
-                if (v.trim().length < 3) return 'O título deve ter pelo menos 3 caracteres.';
+                if (v == null || v.trim().isEmpty) {
+                  return 'O título é obrigatório.';
+                }
+                if (v.trim().length < 3) {
+                  return 'O título deve ter pelo menos 3 caracteres.';
+                }
                 return null;
               },
             ),
@@ -313,8 +380,10 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
-                  child: Icon(Icons.arrow_forward_rounded, color: AppColors.hairlineStrong, size: 18),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+                  child: Icon(Icons.arrow_forward_rounded,
+                      color: AppColors.hairlineStrong, size: 18),
                 ),
                 Expanded(
                   child: _DatePickerField(
@@ -327,6 +396,26 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 24),
+            _FieldLabel(text: 'Elegibilidade geografica'),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              initialValue: _selectedScope,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.location_on_outlined),
+              ),
+              isExpanded: true,
+              items: _scopeOptions
+                  .map((option) => DropdownMenuItem(
+                        value: option.$1,
+                        child: Text(option.$2),
+                      ))
+                  .toList(),
+              onChanged: (value) => setState(() {
+                _selectedScope = value ?? _nationalScope;
+                _errorMessage = null;
+              }),
             ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 20),
@@ -348,12 +437,15 @@ class _CreateElectionScreenState extends State<CreateElectionScreen> {
               label: Text(
                 _isLoading ? 'A criar eleição...' : 'Criar Eleição',
                 style: GoogleFonts.ibmPlexSans(
-                  fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0.5,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
                 ),
               ),
               style: FilledButton.styleFrom(
                 minimumSize: const Size(double.infinity, 52),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4)),
               ),
             ),
           ],
@@ -380,8 +472,10 @@ class _SectionLabel extends StatelessWidget {
             Text(
               '$numeral. $text',
               style: GoogleFonts.ibmPlexSans(
-                fontSize: 10, fontWeight: FontWeight.w700,
-                letterSpacing: 2, color: AppColors.inkMuted,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 2,
+                color: AppColors.inkMuted,
               ),
             ),
           ],
@@ -429,11 +523,22 @@ class _DatePickerField extends StatelessWidget {
   final VoidCallback onTap;
 
   static const _months = [
-    'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
-    'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
+    'Jan',
+    'Fev',
+    'Mar',
+    'Abr',
+    'Mai',
+    'Jun',
+    'Jul',
+    'Ago',
+    'Set',
+    'Out',
+    'Nov',
+    'Dez',
   ];
 
-  String _formatDate(DateTime dt) => '${dt.day} ${_months[dt.month - 1]} ${dt.year}';
+  String _formatDate(DateTime dt) =>
+      '${dt.day} ${_months[dt.month - 1]} ${dt.year}';
   String _formatTime(DateTime dt) =>
       '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
@@ -450,17 +555,22 @@ class _DatePickerField extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: hasValue ? accentColor.withValues(alpha: 0.6) : AppColors.hairline,
+            color: hasValue
+                ? accentColor.withValues(alpha: 0.6)
+                : AppColors.hairline,
             width: hasValue ? 1.5 : 1.0,
           ),
-          color: hasValue ? accentBg.withValues(alpha: 0.5) : AppColors.surfaceContainerLow,
+          color: hasValue
+              ? accentBg.withValues(alpha: 0.5)
+              : AppColors.surfaceContainerLow,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(icon, size: 12, color: hasValue ? accentColor : AppColors.inkDim),
+                Icon(icon,
+                    size: 12, color: hasValue ? accentColor : AppColors.inkDim),
                 const SizedBox(width: 5),
                 Text(
                   label.toUpperCase(),
@@ -490,19 +600,22 @@ class _DatePickerField extends StatelessWidget {
                       Text(
                         _formatTime(dateTime!),
                         style: GoogleFonts.ibmPlexMono(
-                          fontSize: 12, color: AppColors.inkMuted,
+                          fontSize: 12,
+                          color: AppColors.inkMuted,
                         ),
                       ),
                     ],
                   )
                 : Row(
                     children: [
-                      Icon(Icons.calendar_today_rounded, size: 13, color: AppColors.inkDim),
+                      Icon(Icons.calendar_today_rounded,
+                          size: 13, color: AppColors.inkDim),
                       const SizedBox(width: 6),
                       Text(
                         'Selecionar',
                         style: GoogleFonts.ibmPlexSans(
-                          fontSize: 13, color: AppColors.inkDim,
+                          fontSize: 13,
+                          color: AppColors.inkDim,
                         ),
                       ),
                     ],
@@ -528,13 +641,15 @@ class _ErrorBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 16),
+          const Icon(Icons.error_outline_rounded,
+              color: AppColors.error, size: 16),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
               style: GoogleFonts.atkinsonHyperlegible(
-                fontSize: 13, color: AppColors.onOxbloodContainer,
+                fontSize: 13,
+                color: AppColors.onOxbloodContainer,
               ),
             ),
           ),

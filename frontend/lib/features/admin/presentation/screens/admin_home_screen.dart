@@ -7,6 +7,7 @@ import 'package:sistema_eleitoral_frontend/features/admin/presentation/widgets/a
 import 'package:sistema_eleitoral_frontend/features/admin/presentation/widgets/admin_candidates_section.dart';
 import 'package:sistema_eleitoral_frontend/features/admin/presentation/widgets/admin_elections_section.dart';
 import 'package:sistema_eleitoral_frontend/features/admin/presentation/widgets/admin_panel_section.dart';
+import 'package:sistema_eleitoral_frontend/features/admin/presentation/screens/real_time_results_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -22,30 +23,16 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   Widget build(BuildContext context) {
     final desktop = Scaffold(
       backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          const _Dateline(),
-          const _Masthead(),
-          _NavStrip(activeIndex: _navIndex, onTap: (i) => setState(() => _navIndex = i)),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final showAuditRail = constraints.maxWidth >= 1100 && _navIndex != 4;
-                return Row(
-                  children: [
-                    Expanded(child: _buildSection()),
-                    if (showAuditRail)
-                      const SizedBox(
-                        width: 370,
-                        child: AdminAuditConsole(),
-                      ),
-                  ],
-                );
-              },
-            ),
-          ),
-          _Footer(),
-        ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            const _Dateline(),
+            const _Masthead(),
+            _NavStrip(activeIndex: _navIndex, onTap: (i) => setState(() => _navIndex = i)),
+            Expanded(child: _buildSection()),
+            _Footer(),
+          ],
+        ),
       ),
     );
 
@@ -56,7 +43,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         backgroundColor: AppColors.surface,
         centerTitle: true,
       ),
-      body: _buildSection(),
+      body: SafeArea(
+        child: _buildSection(),
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _navIndex > 2 ? 3 : _navIndex,
         onTap: (i) => setState(() => _navIndex = i),
@@ -87,8 +76,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       0 => const AdminPanelSection(),
       1 => const AdminElectionsSection(),
       2 => const AdminCandidatesSection(),
-      3 => const _PlaceholderSection(title: 'Resultados', message: 'Os resultados estarão disponíveis após o encerramento das eleições.'),
-      4 => const AdminAuditConsole(),
+      3 => const RealTimeResultsSection(),
+      4 => const _PlaceholderSection(title: 'Auditoria', message: 'O registo de auditoria está em desenvolvimento.'),
       _ => const AdminPanelSection(),
     };
   }
@@ -202,12 +191,6 @@ class _Masthead extends StatelessWidget {
             ],
           ),
           const Spacer(),
-          FilledButton(
-            onPressed: () => Navigator.pushNamed(context, '/elections/create'),
-            style: FilledButton.styleFrom(minimumSize: const Size(0, 40), padding: const EdgeInsets.symmetric(horizontal: 18)),
-            child: Text('+ Nova Eleição', style: GoogleFonts.ibmPlexSans(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.4)),
-          ),
-          const SizedBox(width: 10),
           OutlinedButton(
             onPressed: () {
               AuthStore.instance.clearToken();

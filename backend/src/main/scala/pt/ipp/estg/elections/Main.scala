@@ -24,18 +24,27 @@ import org.typelevel.log4cats.LoggerFactory
 import org.typelevel.log4cats.slf4j.{Slf4jFactory, Slf4jLogger}
 import pt.ipp.estg.election.aop.{AuditEvent, AuditedCastVoteUseCase, AuditedLoginUseCase, AuditedRegisterVoterUseCase, DefensiveRateLimitMiddleware, LoggedRegisterVoterUseCase, StreamingAuditLog}
 import pt.ipp.estg.election.api.graphql.{ElectionContext, MutationType, QueryType}
+import pt.ipp.estg.election.application.ElectionApplicationFacade
 import pt.ipp.estg.election.config.AppConfig
 import pt.ipp.estg.election.election.application.{AddCandidateUseCase, CreateElectionUseCase, ListActiveElectionsUseCase, ListAllElectionsUseCase, ListElectionCandidatesUseCase}
-import pt.ipp.estg.election.election.infrastructure.{DoobieCandidateRepository, DoobieElectionRepository}
-import pt.ipp.estg.election.voting.application.{CastVoteUseCase, GetVoteResultsUseCase}
-import pt.ipp.estg.election.voting.infrastructure.DoobieVoteRepository
 import pt.ipp.estg.election.identity.application.{LoginVoterUseCase, RegisterVoterUseCase}
 import pt.ipp.estg.election.identity.domain.AuthenticatedVoter
 import pt.ipp.estg.election.identity.infrastructure._
+import pt.ipp.estg.election.infrastructure.DoobieRepositoryFactory
+import pt.ipp.estg.election.voting.application.{CastVoteUseCase, GetVoteResultsUseCase}
 import sangria.execution.Executor
 import sangria.marshalling.circe._
 import sangria.parser.QueryParser
 import sangria.schema._
+import pt.ipp.estg.election.voting.infrastructure.VoteEventBus
+import pt.ipp.estg.election.voting.application.VoteConsumer
+import fs2.Pipe
+import fs2.Stream
+import io.circe.syntax._
+import io.circe.generic.auto._
+import org.http4s.server.websocket.WebSocketBuilder2
+import org.http4s.websocket.WebSocketFrame
+import cats.syntax.all._
 
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
@@ -88,8 +97,7 @@ object Main extends IOApp.Simple {
       None
     )
 
-    val voterRepo      = new DoobieVoterRepository[IO](transactor)
-    val auditLogRepo   = new DoobieAuditLogRepository[IO](transactor)
+    val repositories   = new DoobieRepositoryFactory[IO](transactor)
     val hasher         = new BcryptPasswordHasher[IO]
     val verifier       = new BcryptPasswordVerifier[IO]
     val tokenGenerator = new JwtTokenGenerator[IO](
@@ -97,28 +105,24 @@ object Main extends IOApp.Simple {
       config.security.jwt.expirationSeconds
     )
 
-    val baseRegisterUseCase = new RegisterVoterUseCase[IO](voterRepo, hasher)
+    val baseRegisterUseCase = new RegisterVoterUseCase[IO](repositories.voterRepository, hasher)
     val auditedRegister     = new AuditedRegisterVoterUseCase[IO](
       baseRegisterUseCase,
       Slf4jLogger.getLoggerFromName[IO]("audit.identity.register")
     )
     val loggedRegister = new LoggedRegisterVoterUseCase[IO](auditedRegister)
 
-    val baseLoginUseCase = new LoginVoterUseCase[IO](voterRepo, verifier, tokenGenerator)
+    val baseLoginUseCase = new LoginVoterUseCase[IO](repositories.voterRepository, verifier, tokenGenerator)
+    val auditedLogin     = new AuditedLoginUseCase[IO](baseLoginUseCase, repositories.auditLogRepository)
 
-    val tokenVerifier     = new JwtTokenVerifier[IO](config.security.jwt.secret)
+    val tokenVerifier = new JwtTokenVerifier[IO](config.security.jwt.secret)
 
-    val electionRepo            = new DoobieElectionRepository[IO](transactor)
-    val candidateRepo           = new DoobieCandidateRepository[IO](transactor)
-    val createElection          = new CreateElectionUseCase[IO](electionRepo)
-    val addCandidate            = new AddCandidateUseCase[IO](electionRepo, candidateRepo)
-    val listActiveElections     = new ListActiveElectionsUseCase[IO](electionRepo)
-    val listAllElections        = new ListAllElectionsUseCase[IO](electionRepo)
-    val listElectionCandidates  = new ListElectionCandidatesUseCase[IO](candidateRepo)
-
-    val voteRepo       = new DoobieVoteRepository[IO](transactor)
-    val baseCastVote   = new CastVoteUseCase[IO](electionRepo, candidateRepo, voteRepo)
-    val getVoteResults = new GetVoteResultsUseCase[IO](voteRepo)
+    val createElection         = new CreateElectionUseCase[IO](repositories.electionRepository)
+    val addCandidate           = new AddCandidateUseCase[IO](repositories.electionRepository, repositories.candidateRepository)
+    val listActiveElections    = new ListActiveElectionsUseCase[IO](repositories.electionRepository)
+    val listAllElections       = new ListAllElectionsUseCase[IO](repositories.electionRepository)
+    val listElectionCandidates = new ListElectionCandidatesUseCase[IO](repositories.candidateRepository)
+    val getVoteResults         = new GetVoteResultsUseCase[IO](repositories.voteRepository)
 
     val schema = Schema(
       query    = QueryType.Query,
@@ -130,7 +134,9 @@ object Main extends IOApp.Simple {
     val graphqlPath = config.app.graphql.path.stripPrefix("/")
 
     runMigrations(config) *> (for {
-      auditTopic <- Resource.eval(Topic[IO, AuditEvent])
+      eventBus   <- Resource.eval(VoteEventBus.create[IO])
+      // 2. O teu Consumer reativo corre em background
+      _          <- VoteConsumer.startConsumer(eventBus, repositories.voteRepository, transactor).background
       dispatcher <- Dispatcher.parallel[IO]
       rateLimitMiddleware <- Resource.eval(
         DefensiveRateLimitMiddleware.forGraphql[IO](
@@ -140,9 +146,29 @@ object Main extends IOApp.Simple {
         )
       )
       _ <- {
-        val streamingAuditLog = new StreamingAuditLog[IO](auditLogRepo, auditTopic)
-        val auditedLogin      = new AuditedLoginUseCase[IO](baseLoginUseCase, streamingAuditLog)
-        val castVote          = new AuditedCastVoteUseCase[IO](baseCastVote, streamingAuditLog)
+        // 3. Instanciamos o CastVote AQUI DENTRO porque precisa do eventBus
+        val baseCastVote = new CastVoteUseCase[IO](
+          repositories.electionRepository, 
+          repositories.candidateRepository, 
+          repositories.voterRepository,
+          repositories.voteRepository, 
+          eventBus, 
+          transactor
+        )
+        val castVote = new AuditedCastVoteUseCase[IO](baseCastVote, repositories.auditLogRepository)
+
+        // 4. Instanciamos a Facade da Aplicação AQUI DENTRO porque precisa do castVote
+        val application = ElectionApplicationFacade[IO](
+          registerVoter          = loggedRegister,
+          loginVoter             = auditedLogin,
+          createElection         = createElection,
+          addCandidate           = addCandidate,
+          listActiveElections    = listActiveElections,
+          listAllElections       = listAllElections,
+          listElectionCandidates = listElectionCandidates,
+          castVote               = castVote,
+          getVoteResults         = getVoteResults
+        )
 
         def graphqlRoutes: HttpRoutes[IO] = HttpRoutes.of[IO] {
           case req @ POST -> Root / `graphqlPath` =>
@@ -150,7 +176,7 @@ object Main extends IOApp.Simple {
             val rawToken = extractBearerToken(req)
             for {
               authedVoter <- rawToken.fold(IO.pure(Option.empty[AuthenticatedVoter]))(tokenVerifier.verify)
-              context      = ElectionContext(loggedRegister, auditedLogin, createElection, addCandidate, listActiveElections, listAllElections, listElectionCandidates, castVote, getVoteResults, authedVoter, dispatcher, ip)
+              context      = ElectionContext(application, authedVoter, dispatcher, ip)
               response    <- req.as[Json].flatMap { body =>
                 val query     = body.hcursor.get[String]("query").getOrElse("")
                 val variables = body.hcursor.get[Json]("variables").getOrElse(Json.obj())
@@ -167,23 +193,16 @@ object Main extends IOApp.Simple {
             } yield response
         }
 
-        def auditRoutes(wsb: WebSocketBuilder2[IO]): HttpRoutes[IO] = HttpRoutes.of[IO] {
-          case req @ GET -> Root / "admin" / "audit" / "stream" =>
-            extractWebSocketToken(req) match {
-              case None =>
-                Forbidden("Token de administracao em falta.")
-              case Some(rawToken) =>
-                tokenVerifier.verify(rawToken).flatMap {
-                  case Some(voter) if voter.isAdmin =>
-                    val toClient = auditTopic
-                      .subscribe(256)
-                      .map(event => WebSocketFrame.Text(event.asJson.noSpaces))
-
-                    wsb.build(toClient, _.void)
-                  case _ =>
-                    Forbidden("Acesso restrito a administradores.")
-                }
-            }
+        def webSocketRoute(wsb: WebSocketBuilder2[IO]): HttpRoutes[IO] = HttpRoutes.of[IO] {
+          case GET -> Root / "audit" / "stream" =>
+            import pt.ipp.estg.election.election.domain.{ElectionId, CandidateId}
+            implicit val encodeElectionId: io.circe.Encoder[ElectionId] = io.circe.Encoder.encodeUUID.contramap(_.value)
+            implicit val encodeCandidateId: io.circe.Encoder[CandidateId] = io.circe.Encoder.encodeUUID.contramap(_.value)
+            
+            val toClient: Stream[IO, WebSocketFrame] =
+              eventBus.subscribe.map(event => WebSocketFrame.Text(event.asJson.noSpaces))
+            val fromClient: Pipe[IO, WebSocketFrame, Unit] = _.evalMap(_ => IO.unit)
+            wsb.build(toClient, fromClient)
         }
 
         EmberServerBuilder
@@ -195,7 +214,7 @@ object Main extends IOApp.Simple {
               .withAllowOriginAll
               .withAllowMethodsAll
               .withAllowHeadersAll
-              .httpApp(rateLimitMiddleware(Router("/" -> (graphqlRoutes <+> auditRoutes(wsb))).orNotFound))
+              .httpApp(Router("/" -> (graphqlRoutes <+> webSocketRoute(wsb))).orNotFound)
           )
           .build
       }
