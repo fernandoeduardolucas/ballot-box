@@ -18,6 +18,7 @@ class _VoteScreenState extends State<VoteScreen> {
   bool _voted = false;
   bool _alreadyVoted = false;
   bool _submitting = false;
+  bool _rateLimited = false;
 
   final _voteService = VoteService(GraphQLService(baseUrl: 'http://localhost:8080/graphql'));
 
@@ -49,13 +50,13 @@ class _VoteScreenState extends State<VoteScreen> {
                         _CandidateCard(
                           candidate: widget.args.candidates[i],
                           isSelected: _selectedIndex == i,
-                          disabled: _voted || _alreadyVoted || _submitting,
+                          disabled: _voted || _alreadyVoted || _submitting || _rateLimited,
                           onTap: () => setState(() => _selectedIndex = i),
                         ),
                       const SizedBox(height: 8),
                       if (!_voted && !_alreadyVoted)
                         _VoteButton(
-                          enabled: selected != null && !_voted && !_alreadyVoted && !_submitting,
+                          enabled: selected != null && !_voted && !_alreadyVoted && !_submitting && !_rateLimited,
                           submitting: _submitting,
                           onVote: () => _confirmVote(selected!),
                         ),
@@ -291,6 +292,8 @@ class _VoteScreenState extends State<VoteScreen> {
             _alreadyVoted = true;
             _submitting = false;
           });
+        case CastVoteRateLimited(:final retryAfterSeconds):
+          _lockAfterRateLimit(retryAfterSeconds);
         case CastVoteFailure(:final message):
           setState(() => _submitting = false);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -304,6 +307,29 @@ class _VoteScreenState extends State<VoteScreen> {
         SnackBar(content: Text('Erro: ${e.toString()}')),
       );
     }
+  }
+
+  void _lockAfterRateLimit(int retryAfterSeconds) {
+    final lockSeconds = retryAfterSeconds < 1 ? 3 : retryAfterSeconds;
+
+    setState(() {
+      _submitting = false;
+      _rateLimited = true;
+    });
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Aguarde um momento antes de tentar novamente'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
+    Future.delayed(Duration(seconds: lockSeconds), () {
+      if (!mounted) return;
+      setState(() => _rateLimited = false);
+    });
   }
 }
 

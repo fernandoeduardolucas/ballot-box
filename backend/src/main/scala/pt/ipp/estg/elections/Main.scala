@@ -2,10 +2,13 @@ package pt.ipp.estg.election
 
 import cats.effect._
 import cats.effect.std.Dispatcher
+import cats.syntax.all._
 import com.comcast.ip4s._
 import doobie.util.transactor.Transactor
+import fs2.concurrent.Topic
 import java.util.Properties
 import io.circe.Json
+import io.circe.syntax._
 import org.flywaydb.core.Flyway
 import org.http4s._
 import org.http4s.circe._
@@ -14,10 +17,12 @@ import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.implicits._
 import org.http4s.server.Router
 import org.http4s.server.middleware.CORS
+import org.http4s.server.websocket.WebSocketBuilder2
+import org.http4s.websocket.WebSocketFrame
 import org.typelevel.ci.CIString
 import org.typelevel.log4cats.LoggerFactory
 import org.typelevel.log4cats.slf4j.{Slf4jFactory, Slf4jLogger}
-import pt.ipp.estg.election.aop.{AuditedCastVoteUseCase, AuditedLoginUseCase, AuditedRegisterVoterUseCase, LoggedRegisterVoterUseCase}
+import pt.ipp.estg.election.aop.{AuditEvent, AuditedCastVoteUseCase, AuditedLoginUseCase, AuditedRegisterVoterUseCase, DefensiveRateLimitMiddleware, LoggedRegisterVoterUseCase, StreamingAuditLog}
 import pt.ipp.estg.election.api.graphql.{ElectionContext, MutationType, QueryType}
 import pt.ipp.estg.election.application.ElectionApplicationFacade
 import pt.ipp.estg.election.config.AppConfig
@@ -68,6 +73,10 @@ object Main extends IOApp.Simple {
       .map(_.head.value)
       .filter(_.startsWith("Bearer "))
       .map(_.drop(7).trim)
+
+  private def extractWebSocketToken(req: Request[IO]): Option[String] =
+    extractBearerToken(req)
+      .orElse(req.params.get("token").map(_.trim).filter(_.nonEmpty))
 
   def run: IO[Unit] = {
     val config = AppConfig.load()
@@ -129,6 +138,13 @@ object Main extends IOApp.Simple {
       // 2. O teu Consumer reativo corre em background
       _          <- VoteConsumer.startConsumer(eventBus, repositories.voteRepository, transactor).background
       dispatcher <- Dispatcher.parallel[IO]
+      rateLimitMiddleware <- Resource.eval(
+        DefensiveRateLimitMiddleware.forGraphql[IO](
+          graphqlPath   = graphqlPath,
+          extractIp     = extractIp,
+          extractToken  = extractBearerToken
+        )
+      )
       _ <- {
         // 3. Instanciamos o CastVote AQUI DENTRO porque precisa do eventBus
         val baseCastVote = new CastVoteUseCase[IO](

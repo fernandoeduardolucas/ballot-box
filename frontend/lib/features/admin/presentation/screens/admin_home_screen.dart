@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:sistema_eleitoral_frontend/core/auth/auth_store.dart';
 import 'package:sistema_eleitoral_frontend/core/presentation/widgets/responsive_layout.dart';
 import 'package:sistema_eleitoral_frontend/core/theme/app_colors.dart';
+import 'package:sistema_eleitoral_frontend/features/admin/presentation/widgets/admin_audit_console.dart';
 import 'package:sistema_eleitoral_frontend/features/admin/presentation/widgets/admin_candidates_section.dart';
 import 'package:sistema_eleitoral_frontend/features/admin/presentation/widgets/admin_elections_section.dart';
 import 'package:sistema_eleitoral_frontend/features/admin/presentation/widgets/admin_panel_section.dart';

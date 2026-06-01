@@ -2,6 +2,15 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:sistema_eleitoral_frontend/core/auth/auth_store.dart';
 
+class RateLimitException implements Exception {
+  const RateLimitException({required this.retryAfterSeconds});
+
+  final int retryAfterSeconds;
+
+  @override
+  String toString() => 'Too many requests';
+}
+
 class GraphQLService {
   const GraphQLService({required this.baseUrl});
 
@@ -23,6 +32,12 @@ class GraphQLService {
         if (variables != null) 'variables': variables,
       }),
     );
+
+    if (response.statusCode == 429) {
+      throw RateLimitException(
+        retryAfterSeconds: int.tryParse(response.headers['retry-after'] ?? '') ?? 3,
+      );
+    }
 
     if (response.statusCode != 200) {
       throw Exception('Erro HTTP ${response.statusCode}');
